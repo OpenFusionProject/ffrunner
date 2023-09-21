@@ -21,7 +21,11 @@ NPSavedData saved;
 void
 printNPClass(NPClass *npclass)
 {
-    printf("structVersion: %d\nconstruct: %p\nallocate: %p\n...\n", npclass->structVersion, npclass->construct, npclass->allocate);
+    printf("structVersion: %d\n"
+    "construct: %p\n"
+    "allocate: %p\n"
+    "...\n",
+    npclass->structVersion, npclass->construct, npclass->allocate);
 }
 
 NPError
@@ -113,8 +117,8 @@ NPN_GetURLNotifyProc(NPP instance, const char* url, const char* window, void* no
 }
 
 NPNetscapeFuncs netscapeFuncs = {
-    .size = 0xac, // TODO
-    .version = 20, // TODO
+    .size = 224,
+    .version = 27,
     .geturl = NPN_GetURLProc,
     /* ... */
     .uagent = NPN_UserAgentProc,
@@ -150,11 +154,11 @@ main(void)
 
     printf("NP_GetEntryPoints\n");
     NPError ret = NP_GetEntryPoints(&pluginFuncs);
-    printf("%d\n", ret);
+    printf("returned %d\n", ret);
 
     printf("NP_Initialize\n");
     ret = NP_Initialize(&netscapeFuncs);
-    printf("%d\n", ret);
+    printf("returned %d\n", ret);
 
     printf("print members\n");
     printf("size: %d, version: %d\n", pluginFuncs.size, pluginFuncs.version);
@@ -162,7 +166,46 @@ main(void)
 
     printf("run NPP_NewProc\n");
     ret = pluginFuncs.newp("application/vnd.ffuwp", &npp, 1, 0, NULL, NULL, &saved);
-    printf("%d\n", ret);
+    printf("returned %d\n", ret);
+
+    HWND hwnd = CreateWindowA("STATIC", "FusionFall", WS_OVERLAPPEDWINDOW, CW_USEDEFAULT, 0, CW_USEDEFAULT, 0, 0, 0, GetModuleHandleA(0), 0);
+    assert(hwnd);
+
+    //ShowWindow(hwnd, SW_SHOWDEFAULT);
+    //UpdateWindow(hwnd);
+
+    NPWindow npWin = {
+        .window = hwnd,
+        .x = 0, .y = 0,
+        .width = 1280, .height = 720,
+        .clipRect = {
+            0, 0, 1280, 720
+        },
+        .type = NPWindowTypeWindow
+    };
+
+    printf("run NPP_SetWindowProc\n");
+    ret = pluginFuncs.setwindow(&npp, &npWin);
+    printf("returned %d\n", ret);
+
+    NPObject *scriptableObject = NULL;
+
+    printf("run NPP_GetValueProc\n");
+    ret = pluginFuncs.getvalue(&npp, NPPVpluginScriptableNPObject, &scriptableObject);
+    printf("returned %d and NPObject %p\n", ret, scriptableObject);
+
+    assert(scriptableObject->_class);
+    printNPClass(scriptableObject->_class);
+
+    NPIdentifier *items;
+    int itemcount;
+
+    // enumerate() isn't implented. invoke() looks to be the way to go.'
+#if 0
+    printf("run NPEnumerationFunction\n");
+    scriptableObject->_class->enumerate(scriptableObject, &items, &itemcount);
+    printf("returned %d items\n", itemcount);
+#endif
 
     return 0;
 }

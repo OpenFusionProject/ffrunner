@@ -9,7 +9,7 @@ HDR=\
 
 all: ffrunner.exe
 
-ffrunner.exe: ffrunner.c
+ffrunner.exe: $(SRC) $(HDR)
 	i686-w64-mingw32-gcc -O0 -g ffrunner.c -o ffrunner.exe
 
 gdbs:
