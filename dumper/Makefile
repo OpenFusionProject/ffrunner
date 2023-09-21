@@ -9,7 +9,7 @@ HDR=\
 
 all: dumper.exe
 
-dumper.exe: dumper.c
+dumper.exe: $(SRC) $(HDR)
 	i686-w64-mingw32-gcc -O0 -g dumper.c -o dumper.exe
 
 gdbs:

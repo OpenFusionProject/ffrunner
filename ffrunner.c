@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <stdint.h>
 #include <stdbool.h>
+#include <string.h>
 #include <unistd.h>
 #include <assert.h>
 
@@ -13,6 +14,17 @@
 #include "npapi/nptypes.h"
 
 #define USERAGENT "ffrunner"
+#define REVISIONS_PLIST "http://webplayer.unity3d.com/autodownload_webplugin_beta/revisions.plist"
+
+#define ARRLEN(x) (sizeof(x)/sizeof(*x))
+
+struct {
+    bool completed;
+    void *notifyData;
+    char url[256];
+} requests[16];
+
+int nrequests = 0;
 
 NPP_t npp;
 NPPluginFuncs pluginFuncs;
@@ -21,51 +33,98 @@ NPSavedData saved;
 void
 printNPClass(NPClass *npclass)
 {
+#if 0
     printf("structVersion: %d\n"
     "construct: %p\n"
     "allocate: %p\n"
     "...\n",
     npclass->structVersion, npclass->construct, npclass->allocate);
+#endif
+}
+
+void
+dispatch_requests(void)
+{
+    int i;
+    NPReason res;
+
+    for (i = 0; i < nrequests; i++) {
+        if (requests[i].completed)
+            continue;
+
+        res = NPRES_DONE;
+
+        if (strncmp(requests[i].url, REVISIONS_PLIST, strlen(REVISIONS_PLIST)) == 0)
+            res = NPRES_NETWORK_ERR;
+
+        NPStream npstream = {
+            .url = requests[i].url,
+            .notifyData = requests[i].notifyData,
+        };
+
+        /* TODO: implement this
+        pluginFuncs.newstream(&npp "TODO/MIMETYPE", &npstream, 0, NP_NORMAL);
+        pluginFuncs.writeready(&npp, &npstream);
+        pluginFuncs.write(&npp, &npstream, ...);
+        pluginFuncs.destroystream(&npp, NPRES_DONE);
+        */
+
+        printf("> NPP_URLNotify %s\n", requests[i].url);
+        pluginFuncs.urlnotify(&npp, requests[i].url, NPRES_NETWORK_ERR, requests[i].notifyData);
+    }
 }
 
 NPError
 NPN_GetURLProc(NPP instance, const char* url, const char* window)
 {
-    printf("[D] NPN_GetURLProcPtr:%p, url: %s, window: %s\n", instance, url, window);
+    printf("< NPN_GetURLProcPtr:%p, url: %s, window: %s\n", instance, url, window);
+    return NPERR_NO_ERROR;
+}
+
+NPError
+NPN_GetURLNotifyProc(NPP instance, const char* url, const char* window, void* notifyData)
+{
+    printf("< NPN_GetURLNotifyProc:%p, url: %s, window: %s, notifyData: %p\n", instance, url, window, notifyData);
+
+    strncpy(requests[nrequests].url, url, sizeof(requests[nrequests].url));
+    requests[nrequests].notifyData = notifyData;
+    requests[nrequests].completed = false;
+    nrequests++;
+
     return NPERR_NO_ERROR;
 }
 
 const char *
 NPN_UserAgentProc(NPP instance)
 {
-    printf("[D] NPN_UserAgentProc, NPP:%p\n", instance);
+    printf("< NPN_UserAgentProc, NPP:%p\n", instance);
     return USERAGENT;
 }
 
 bool
 NPN_GetPropertyProc(NPP npp, NPObject *obj, NPIdentifier propertyName, NPVariant *result)
 {
-    printf("[D] NPN_GetPropertyProc\n");
+    printf("< NPN_GetPropertyProc\n");
     return false;
 }
 
 bool
 NPN_InvokeProc(NPP npp, NPObject* obj, NPIdentifier methodName, const NPVariant *args, uint32_t argCount, NPVariant *result)
 {
-    printf("[D] NPN_InvokeProc:%p, obj: %s, methodName: %p, argCount:%d\n", npp, obj, methodName, argCount);
+    printf("< NPN_InvokeProc:%p, obj: %s, methodName: %p, argCount:%d\n", npp, obj, methodName, argCount);
     return false;
 }
 
 void
 NPN_ReleaseVariantValueProc(NPVariant *variant)
 {
-    printf("[D] NPN_ReleaseVariantValueProc\n");
+    printf("< NPN_ReleaseVariantValueProc\n");
 }
 
 NPObject *
 NPN_CreateObjectProc(NPP npp, NPClass *aClass)
 {
-    printf("[D] NPN_CreateObjectProc\n");
+    printf("< NPN_CreateObjectProc\n");
     assert(aClass);
     printNPClass(aClass);
 
@@ -87,7 +146,7 @@ NPN_CreateObjectProc(NPP npp, NPClass *aClass)
 NPObject *
 NPN_RetainObjectProc(NPObject *obj)
 {
-    printf("[D] NPN_RetainObjectProc\n");
+    printf("< NPN_RetainObjectProc\n");
     assert(obj);
     obj->referenceCount++;
     return obj;
@@ -96,7 +155,7 @@ NPN_RetainObjectProc(NPObject *obj)
 void
 NPN_ReleaseObjectProc(NPObject *obj)
 {
-    printf("[D] NPN_ReleaseObjectProc\n");
+    printf("< NPN_ReleaseObjectProc\n");
     assert(obj);
 
     obj->referenceCount--;
@@ -107,13 +166,6 @@ NPN_ReleaseObjectProc(NPObject *obj)
         else
             free(obj);
     }
-}
-
-NPError
-NPN_GetURLNotifyProc(NPP instance, const char* url, const char* window, void* notifyData)
-{
-    printf("[D] NPN_GetURLNotifyProc:%p, url: %s, window: %s, notifyData: %p\n", instance, url, window, notifyData);
-    return 0;
 }
 
 NPNetscapeFuncs netscapeFuncs = {
@@ -152,11 +204,11 @@ main(void)
     FARPROC NP_Initialize = GetProcAddress(loader, "NP_Initialize");
     FARPROC NP_Shutdown = GetProcAddress(loader, "NP_Shutdown");
 
-    printf("NP_GetEntryPoints\n");
+    printf("> NP_GetEntryPoints\n");
     NPError ret = NP_GetEntryPoints(&pluginFuncs);
     printf("returned %d\n", ret);
 
-    printf("NP_Initialize\n");
+    printf("> NP_Initialize\n");
     ret = NP_Initialize(&netscapeFuncs);
     printf("returned %d\n", ret);
 
@@ -164,9 +216,41 @@ main(void)
     printf("size: %d, version: %d\n", pluginFuncs.size, pluginFuncs.version);
     printf("%#p\n", pluginFuncs.newp);
 
-    printf("run NPP_NewProc\n");
-    ret = pluginFuncs.newp("application/vnd.ffuwp", &npp, 1, 0, NULL, NULL, &saved);
+    char *argn[] = {
+        "src",
+        "type",
+        "pluginspage",
+        "width",
+        "height",
+        "bordercolor",
+        "backgroundcolor",
+        "disableContextMenu",
+        "textcolor",
+        "logoimage",
+        "progressbarimage",
+        "progressframeimage",
+    };
+    char *argv[] = {
+        "http://cdn.dexlabs.systems/ff/big/beta-20100104/main.unity3d",
+        "application/vnd.ffuwp",
+        "http://www.unity3d.com/unity-web-player-2.x",
+        "1280",
+        "680",
+        "000000",
+        "000000",
+        "true",
+        "ccffff",
+        "assets/img/unity-dexlabs.png",
+        "assets/img/unity-loadingbar.png",
+        "assets/img/unity-loadingframe.png",
+    };
+    assert(ARRLEN(argn) == ARRLEN(argv));
+
+    printf("> NPP_NewProc\n");
+    ret = pluginFuncs.newp("application/vnd.ffuwp", &npp, 1, ARRLEN(argn), argn, argv, &saved);
     printf("returned %d\n", ret);
+
+    dispatch_requests();
 
     HWND hwnd = CreateWindowA("STATIC", "FusionFall", WS_OVERLAPPEDWINDOW, CW_USEDEFAULT, 0, CW_USEDEFAULT, 0, 0, 0, GetModuleHandleA(0), 0);
     assert(hwnd);
@@ -184,13 +268,13 @@ main(void)
         .type = NPWindowTypeWindow
     };
 
-    printf("run NPP_SetWindowProc\n");
+    printf("> NPP_SetWindowProc\n");
     ret = pluginFuncs.setwindow(&npp, &npWin);
     printf("returned %d\n", ret);
 
     NPObject *scriptableObject = NULL;
 
-    printf("run NPP_GetValueProc\n");
+    printf("> NPP_GetValueProc\n");
     ret = pluginFuncs.getvalue(&npp, NPPVpluginScriptableNPObject, &scriptableObject);
     printf("returned %d and NPObject %p\n", ret, scriptableObject);
 
@@ -200,7 +284,7 @@ main(void)
     NPIdentifier *items;
     int itemcount;
 
-    // enumerate() isn't implented. invoke() looks to be the way to go.'
+    // enumerate() isn't implented. invoke() looks to be the way to go.
 #if 0
     printf("run NPEnumerationFunction\n");
     scriptableObject->_class->enumerate(scriptableObject, &items, &itemcount);
