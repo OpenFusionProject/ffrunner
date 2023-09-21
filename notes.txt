@@ -1,0 +1,266 @@
+(NPPluginFuns-only) calls:
+
+* NP_GetEntryPoints
+* NP_Initialize
+* NPP_NewProcPtr
+* NPP_SetWindowProcPtr
+    {window = 0x40152, x = 0, y = 0, width = 1408, height = 680, clipRect = {top = 0, left = 0, bottom = 680, right = 1408}, type = NPWindowTypeWindow}
+* GetValueProcPtr
+    - calls back into 08A210C4
+    - eventually jumps back into browser code
+    - NPPVpluginScriptableNPObject
+    - on return, ret_value arg points to another value on the stack
+* NPP_SetWindowProcPtr
+* NPP_NewStreamProcPtr(npp, "image/png", stream, seekable??, 1/NP_NORMAL)
+
+stream = {
+  pdata = 0x0,
+  ndata = 0x3960370,
+  url = 0x39a4130 "file:///C:/users/dong/OpenFusionClient-1.4.2-ia32-win/resources/app/assets/img/unity-dexlabs.png",
+  end = 9855,
+  lastmodified = 0,
+  notifyData = 0x2,
+  headers = 0x0
+}
+
+seekable is suposed to be bool, but is 7 somehow??
+wait no, it's probably just a 00. only one byte on the stack.
+
+* NPP_NewStreamProcPtr (same for unity-dexlabs.png)
+* NPP_NewStreamProcPtr (same for unity-loadingframe.png)
+* NPP_WriteProcPtr
+* NPP_DestroyStreamProcPtr
+* NPP_URLNotifyProcPtr
+    - the URL on the stack is:
+"file:///C:/users/dong/OpenFusionClient-1.4.2-ia32-win/resources/app/assets/img/unity-loadingbar.png"
+* NPP_WriteReadyProcPtr
+* NPP_WriteProcPtr
+* NPP_DestroyStreamProcPtr
+* NPP_URLNotifyProcPtr
+    - the URL on the stack is:
+"file:///C:/users/dong/OpenFusionClient-1.4.2-ia32-win/resources/app/assets/img/unity-loadingframe.png"
+* NPP_WriteReadyProcPtr
+* NPP_WriteProcPtr
+* NPP_DestroyStreamProcPtr
+* NPP_URLNotifyProcPtr
+"file:///C:/users/dong/OpenFusionClient-1.4.2-ia32-win/resources/app/assets/img/unity-dexlabs.png"
+* NPP_NewStreamProcPtr
+* NPP_WriteReadyProcPtr
+* NPP_WriteProcPtr
+* NPP_WriteReadyProcPtr
+* NPP_WriteProcPtr
+* NPP_WriteReadyProcPtr
+* NPP_WriteProcPtr
+* NPP_WriteReadyProcPtr
+* NPP_WriteProcPtr
+
+...a bunch more of this...
+copying 32768 bytes of the image at a time, I think
+unity-dexlabs.png is 9855 bytes. could be processing main.unity3d?
+
+yeah, I think it was filling up the progress bar.
+
+* NPP_DestroyStreamProcPtr
+
+at this point, the in-game loading screen has been drawn.
+
+* NPP_URLNotifyProcPtr
+"file:///C:/users/dong/OpenFusionClient-1.4.2-ia32-win/resources/app/local.php"
+* NPP_NewStreamProcPtr
+* NPP_WriteReadyProcPtr
+* NPP_WriteProcPtr
+* NPP_DestroyStreamProcPtr
+* NPP_URLNotifyProcPtr
+"file:///C:/users/dong/OpenFusionClient-1.4.2-ia32-win/resources/app/loginInfo.php"
+* NPP_NewStreamProcPtr
+* NPP_WriteReadyProcPtr
+* NPP_WriteProcPtr
+* NPP_DestroyStreamProcPtr
+* NPP_URLNotifyProcPtr
+"file:///C:/users/dong/OpenFusionClient-1.4.2-ia32-win/resources/app/rankUrl.php"
+* NPP_NewStreamProcPtr
+* NPP_WriteReadyProcPtr
+* NPP_WriteProcPtr
+* NPP_DestroyStreamProcPtr
+* NPP_WriteProcPtr
+stack contains "http://cdn.dexlabs.systems/ff/big/beta-20100104/" as param_5
+* NPP_DestroyStreamProcPtr
+* NPP_URLNotifyProcPtr
+"file:///C:/users/dong/OpenFusionClient-1.4.2-ia32-win/resources/app/assetInfo.php"
+
+(might have skipped the destructino sequence for this last one? might not have happened?)
+
+at this point, we are at the login screen awaiting input.
+interaction with the in-game UI does NOT block on any NPP calls.
+probably blocks on NPN calls.
+
+from here on, the game fully runs, without any further NPP calls.
+
+when after hitting the in-game exit button, no further calls are made, and the client shuts down normally.
+
+
+loaded at 08A2....
+
+E0 00 1B 00 10 C4 6E 02 E0 CA 6E 02 B0 CB 6E 02 C0 C9 6E 02 D0 D0 6E 02 10 C3 6E 02 A0 CE 6E 02 B0 CF 6E 02 80 C9 6E 02 A0 C9 6E 02 90 C9 6E 02 90 CB 6E 02 D0 C3 6E 02 F0 C3 6E 02 30 C4 6E 02 10 CB 6E 02 50 C4 6E 02 80 CC 6E 02 30 C8 6E 02 30 C9 6E 02 70 C3 6E 02 10 DC 50 02 20 DC 50 02 A0 D9 50 02 50 DC 50 02 60 E0 50 02 70 DC 50 02 E0 D5 50 02 60 DF 50 02 30 DF 50 02 80 1A 6C 02 60 1A 6C 02 F0 19 6C 02 00 1A 6C 02 A0 1B 6C 02 B0 1A 6C 02 40 1A 6C 02 20 1A 6C 02 40 DF 50 02 D0 1A 6C 02 40 CB 6E 02 30 CA 6E 02 D0 19 6C 02 E0 C9 6E 02 D0 D5 50 02 E0 C5 6E 02 60 CD 6E 02 80 C3 6E 02 20 CC 6E 02 60 CF 6E 02 70 CA 6E 02 90 C2 6E 02 D0 C7 6E 02 00 CF 6E 02 B0 CE 6E 02 6C 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+
+{
+0xE0, 0x00, 0x1B, 0x00, 0x10, 0xC4, 0x6E, 0x02, 0xE0, 0xCA, 0x6E, 0x02, 0xB0, 0xCB, 0x6E, 0x02,
+0xC0, 0xC9, 0x6E, 0x02, 0xD0, 0xD0, 0x6E, 0x02, 0x10, 0xC3, 0x6E, 0x02, 0xA0, 0xCE, 0x6E, 0x02,
+0xB0, 0xCF, 0x6E, 0x02, 0x80, 0xC9, 0x6E, 0x02, 0xA0, 0xC9, 0x6E, 0x02, 0x90, 0xC9, 0x6E, 0x02,
+0x90, 0xCB, 0x6E, 0x02, 0xD0, 0xC3, 0x6E, 0x02, 0xF0, 0xC3, 0x6E, 0x02, 0x30, 0xC4, 0x6E, 0x02,
+0x10, 0xCB, 0x6E, 0x02, 0x50, 0xC4, 0x6E, 0x02, 0x80, 0xCC, 0x6E, 0x02, 0x30, 0xC8, 0x6E, 0x02,
+0x30, 0xC9, 0x6E, 0x02, 0x70, 0xC3, 0x6E, 0x02, 0x10, 0xDC, 0x50, 0x02, 0x20, 0xDC, 0x50, 0x02,
+0xA0, 0xD9, 0x50, 0x02, 0x50, 0xDC, 0x50, 0x02, 0x60, 0xE0, 0x50, 0x02, 0x70, 0xDC, 0x50, 0x02,
+0xE0, 0xD5, 0x50, 0x02, 0x60, 0xDF, 0x50, 0x02, 0x30, 0xDF, 0x50, 0x02, 0x80, 0x1A, 0x6C, 0x02,
+0x60, 0x1A, 0x6C, 0x02, 0xF0, 0x19, 0x6C, 0x02, 0x00, 0x1A, 0x6C, 0x02, 0xA0, 0x1B, 0x6C, 0x02,
+0xB0, 0x1A, 0x6C, 0x02, 0x40, 0x1A, 0x6C, 0x02, 0x20, 0x1A, 0x6C, 0x02, 0x40, 0xDF, 0x50, 0x02,
+0xD0, 0x1A, 0x6C, 0x02, 0x40, 0xCB, 0x6E, 0x02, 0x30, 0xCA, 0x6E, 0x02, 0xD0, 0x19, 0x6C, 0x02,
+0xE0, 0xC9, 0x6E, 0x02, 0xD0, 0xD5, 0x50, 0x02, 0xE0, 0xC5, 0x6E, 0x02, 0x60, 0xCD, 0x6E, 0x02,
+0x80, 0xC3, 0x6E, 0x02, 0x20, 0xCC, 0x6E, 0x02, 0x60, 0xCF, 0x6E, 0x02, 0x70, 0xCA, 0x6E, 0x02,
+0x90, 0xC2, 0x6E, 0x02, 0xD0, 0xC7, 0x6E, 0x02, 0x00, 0xCF, 0x6E, 0x02, 0xB0, 0xCE, 0x6E, 0x02,
+0x6C, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
+};
+
+(gdb) p *bfuncs
+$2 = {
+  size = 224,
+  version = 27,
+  geturl = 0x26ec410,
+  posturl = 0x26ecae0,
+  requestread = 0x26ecbb0,
+  newstream = 0x26ec9c0,
+  write = 0x26ed0d0,
+  destroystream = 0x26ec310,
+  status = 0x26ecea0,
+  uagent = 0x26ecfb0,
+  memalloc = 0x26ec980,
+  memfree = 0x26ec9a0,
+  memflush = 0x26ec990,
+  reloadplugins = 0x26ecb90,
+  getJavaEnv = 0x26ec3d0,
+  getJavaPeer = 0x26ec3f0,
+  geturlnotify = 0x26ec430,
+  posturlnotify = 0x26ecb10,
+  getvalue = 0x26ec450,
+  setvalue = 0x26ecc80,
+  invalidaterect = 0x26ec830,
+  invalidateregion = 0x26ec930,
+  forceredraw = 0x26ec370,
+  getstringidentifier = 0x250dc10,
+  getstringidentifiers = 0x250dc20,
+  getintidentifier = 0x250d9a0,
+  identifierisstring = 0x250dc50,
+  utf8fromidentifier = 0x250e060,
+  intfromidentifier = 0x250dc70,
+  createobject = 0x250d5e0,
+  retainobject = 0x250df60,
+  releaseobject = 0x250df30,
+  invoke = 0x26c1a80,
+  invokeDefault = 0x26c1a60,
+  evaluate = 0x26c19f0,
+  getproperty = 0x26c1a00,
+  setproperty = 0x26c1ba0,
+  removeproperty = 0x26c1ab0,
+  hasproperty = 0x26c1a40,
+  hasmethod = 0x26c1a20,
+  releasevariantvalue = 0x250df40,
+  setexception = 0x26c1ad0,
+  pushpopupsenabledstate = 0x26ecb40,
+  poppopupsenabledstate = 0x26eca30,
+  enumerate = 0x26c19d0,
+  pluginthreadasynccall = 0x26ec9e0,
+  construct = 0x250d5d0,
+  getvalueforurl = 0x26ec5e0,
+  setvalueforurl = 0x26ecd60,
+  getauthenticationinfo = 0x26ec380,
+  scheduletimer = 0x26ecc20,
+  unscheduletimer = 0x26ecf60,
+  popupcontextmenu = 0x26eca70,
+  convertpoint = 0x26ec290,
+  handleevent = 0x26ec7d0,
+  unfocusinstance = 0x26ecf00,
+  urlredirectresponse = 0x26eceb0
+}
+
+0379F554                  026C3B37                 return to openfusionclient.026C3B37 from ???
+0379F558                  03B568B0
+0379F55C                  0000000F
+0379F560                  0379F564
+0379F564                  00000000
+0379F568                  0379F584
+
+0379F554                  026C3B37                 return to openfusionclient.026C3B37 from ???
+0379F558                  03B568B0
+0379F55C                  0000000F
+0379F560                  0379F564
+0379F564                  08A71598
+0379F568                  0379F584
+
+$1 = {
+  structVersion = 1,
+  allocate = 0x8a23ae8,
+  deallocate = 0x8a38ca9, // points to regular stdlib free()
+  invalidate = 0x8a3839d, // points to noop func
+  hasMethod = 0x8a23ab0,
+  invoke = 0x8a243cf, // the big one; probably handles SendMessage and other calls from JS
+  invokeDefault = 0x8a23ade, // noop, zeroes arg and returns 1
+  hasProperty = 0x8a23aad, // noop, returns 0
+  getProperty = 0x8a23acd,
+  setProperty = 0x8a23adb, // noop, returns 1
+  removeProperty = 0x8a23aad, // noop, same ptr as hasProperty
+  enumerate = 0x8a4e5c4, // points directly into a string??
+  construct = 0x8a4e5b4 // points directly into a string??
+}
+
+
+
+* NP_GetEntryPoints
+* NP_Initialize
+* NPP_NewProcPtr
+
+< NPN_GetURLNotify (npp, "assets/img/unity-dexlabs.png", NULL, 0x00000002)
+< NPN_GetURLNotify (npp, "assets/img/unity-loadingbar.png", NULL, 0x00000002)
+< NPN_GetURLNotify (npp, "assets/img/unity-loadingframe.png", NULL, 0x00000002)
+
+* NPP_NewStreamProc(npp, "image/png", stream, seekable??, 1/NP_NORMAL)
+
+stream = {
+  pdata = 0x0,
+  ndata = 0x3960370,
+  url = 0x39a4130 "file:///C:/users/dong/OpenFusionClient-1.4.2-ia32-win/resources/app/assets/img/unity-dexlabs.png",
+  end = 9855,
+  lastmodified = 0,
+  notifyData = 0x2,
+  headers = 0x0
+}
+
+seekable is suposed to be bool, but is 7 somehow??
+wait no, it's probably just a 00. only one byte on the stack.
+
+* NPP_NewStreamProc (same for unity-dexlabs.png)
+* NPP_NewStreamProc (same for unity-loadingframe.png)
+
+* NPP_WriteReadyProc (unity-dexlabs.png stream)
+* NPP_WriteProc (npp, stream, 0, 9855, buffer)
+
+unity-dexlabs.png stream
+buffer points to PNG data
+
+* NPP_DestroyStreamProc (npp, stream for unity-dexlabs.png, NPRES_DONE (0))
+* NPP_URLNotifyProc (stream for unity-dexlabs.png NPRES_DONE)
+* NPP_WriteReadyProc stream 03ad0758 = unity-loadingbar.png
+* NPP_WriteProc stream 03ad0758 = unity-loadingbar.png
+* NPP_DestroyStreamProc stream 03ad0758 = unity-loadingbar.png NPRES_DONE
+* NPP_URLNotifyProc (stream for unity-loadingbar.png NPRES_DONE)
+
+... then it loads main.unity3d
+
+< NPN_GetURLNotify "local.php"
+< NPN_GetURLNotify "loginInfo.php"
+
+those get served as "text/plain"
+
+< NPN_GetURLNotify "rankurl.php"
+< NPN_GetURLNotify "assetInfo.php"
+
+and then we're in the game
