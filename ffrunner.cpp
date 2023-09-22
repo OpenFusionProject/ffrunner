@@ -133,7 +133,7 @@ NPN_CreateObjectProc(NPP npp, NPClass *aClass)
     if (aClass->allocate)
         npobj = aClass->allocate(npp, aClass);
     else
-        npobj = malloc(sizeof(*npobj));
+        npobj = (NPObject*)malloc(sizeof(*npobj));
 
     if (npobj) {
         npobj->_class = aClass;
@@ -168,7 +168,9 @@ NPN_ReleaseObjectProc(NPObject *obj)
     }
 }
 
-NPNetscapeFuncs netscapeFuncs = {
+NPNetscapeFuncs netscapeFuncs;
+#if 0
+= {
     .size = 224,
     .version = 27,
     .geturl = NPN_GetURLProc,
@@ -188,10 +190,31 @@ NPNetscapeFuncs netscapeFuncs = {
     /* ... */
     .releasevariantvalue = NPN_ReleaseVariantValueProc,
 };
+#endif
 
 int
 main(void)
 {
+    netscapeFuncs.size = 224;
+    netscapeFuncs.version = 27;
+    netscapeFuncs.geturl = NPN_GetURLProc;
+    /* ... */
+    netscapeFuncs.uagent = NPN_UserAgentProc;
+    /* ... */
+    netscapeFuncs.geturlnotify = NPN_GetURLNotifyProc;
+    /* ... */
+    netscapeFuncs.releaseobject = NPN_ReleaseObjectProc;
+    /* ... */
+    netscapeFuncs.invoke = NPN_InvokeProc;
+    /* ... */
+    netscapeFuncs.getproperty = NPN_GetPropertyProc;
+    /* ... */
+    netscapeFuncs.createobject = NPN_CreateObjectProc;
+    netscapeFuncs.retainobject = NPN_RetainObjectProc;
+    /* ... */
+    netscapeFuncs.releasevariantvalue = NPN_ReleaseVariantValueProc;
+
+
     char *cwd = getcwd(NULL, 0);
     printf("setenv(\"%s\")\n", cwd);
     SetEnvironmentVariable("UNITY_HOME_DIR", cwd);
@@ -201,8 +224,8 @@ main(void)
 
     printf("GetProcAddress\n");
     NP_GetEntryPointsFunc NP_GetEntryPoints = (NP_GetEntryPointsFunc)GetProcAddress(loader, "NP_GetEntryPoints");
-    FARPROC NP_Initialize = GetProcAddress(loader, "NP_Initialize");
-    FARPROC NP_Shutdown = GetProcAddress(loader, "NP_Shutdown");
+    NP_InitializeFunc NP_Initialize = (NP_InitializeFunc)GetProcAddress(loader, "NP_Initialize");
+    NP_ShutdownFunc NP_Shutdown = (NP_ShutdownFunc)GetProcAddress(loader, "NP_Shutdown");
 
     printf("> NP_GetEntryPoints\n");
     NPError ret = NP_GetEntryPoints(&pluginFuncs);

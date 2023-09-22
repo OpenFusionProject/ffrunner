@@ -1,5 +1,5 @@
 SRC=\
-	ffrunner.c
+	ffrunner.cpp
 
 HDR=\
 	npapi/npapi.h\
@@ -10,7 +10,7 @@ HDR=\
 all: ffrunner.exe
 
 ffrunner.exe: $(SRC) $(HDR)
-	i686-w64-mingw32-gcc -O0 -g ffrunner.c -o ffrunner.exe
+	i686-w64-mingw32-g++ -static -static-libgcc -static-libstdc++ -Wno-write-strings -O0 -g ffrunner.cpp -o ffrunner.exe
 
 gdbs:
 	wine /usr/share/win32/gdbserver.exe localhost:10000 ffrunner.exe
