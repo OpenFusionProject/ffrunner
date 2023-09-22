@@ -13,56 +13,16 @@
 #include "npapi/npruntime.h"
 #include "npapi/nptypes.h"
 
-#define USERAGENT "ffrunner"
-#define REVISIONS_PLIST "http://webplayer.unity3d.com/autodownload_webplugin_beta/revisions.plist"
+#include "ffrunner.h"
 
-#define ARRLEN(x) (sizeof(x)/sizeof(*x))
-
-struct {
-    bool completed;
-    void *notifyData;
-    char url[256];
-} requests[16];
+Request requests[16];
 
 int nrequests = 0;
 
 NPP_t npp;
 NPPluginFuncs pluginFuncs;
+NPNetscapeFuncs netscapeFuncs;
 NPSavedData saved;
-
-void
-dispatch_requests(void)
-{
-    int i;
-    NPReason res;
-
-    for (i = 0; i < nrequests; i++) {
-        if (requests[i].completed)
-            continue;
-
-        res = NPRES_DONE;
-
-        if (strncmp(requests[i].url, REVISIONS_PLIST, strlen(REVISIONS_PLIST)) == 0)
-            res = NPRES_NETWORK_ERR;
-
-        NPStream npstream = {
-            .url = requests[i].url,
-            .notifyData = requests[i].notifyData,
-        };
-
-        /* TODO: implement this
-        pluginFuncs.newstream(&npp "TODO/MIMETYPE", &npstream, 0, NP_NORMAL);
-        pluginFuncs.writeready(&npp, &npstream);
-        pluginFuncs.write(&npp, &npstream, ...);
-        pluginFuncs.destroystream(&npp, NPRES_DONE);
-        */
-
-        printf("> NPP_URLNotify %s\n", requests[i].url);
-        pluginFuncs.urlnotify(&npp, requests[i].url, NPRES_NETWORK_ERR, requests[i].notifyData);
-
-        requests[i].completed = true;
-    }
-}
 
 NPError
 NPN_GetURLProc(NPP instance, const char* url, const char* window)
@@ -157,8 +117,6 @@ NPN_ReleaseObjectProc(NPObject *obj)
     }
 }
 
-NPNetscapeFuncs netscapeFuncs;
-
 void
 initNetscapeFuncs(void)
 {
@@ -238,7 +196,7 @@ main(void)
     ret = pluginFuncs.newp("application/vnd.ffuwp", &npp, 1, ARRLEN(argn), argn, argv, &saved);
     printf("returned %d\n", ret);
 
-    dispatch_requests();
+    handle_requests();
 
     HWND hwnd = CreateWindowA("STATIC", "FusionFall", WS_OVERLAPPEDWINDOW, CW_USEDEFAULT, 0, CW_USEDEFAULT, 0, 0, 0, GetModuleHandleA(0), 0);
     assert(hwnd);
@@ -272,7 +230,7 @@ main(void)
 
     // TODO: initiate a request for src=main.unity3d
 
-    // TODO: main loop with dispatch_requests()
+    // TODO: main loop with handle_requests()
 
     return 0;
 }
