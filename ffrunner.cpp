@@ -6,6 +6,9 @@
 #include <unistd.h>
 #include <assert.h>
 
+#include <map>
+#include <string>
+
 #include <windows.h>
 
 #include "npapi/npapi.h"
@@ -14,10 +17,6 @@
 #include "npapi/nptypes.h"
 
 #include "ffrunner.h"
-
-Request requests[16];
-
-int nrequests = 0;
 
 NPP_t npp;
 NPPluginFuncs pluginFuncs;
@@ -36,10 +35,7 @@ NPN_GetURLNotifyProc(NPP instance, const char* url, const char* window, void* no
 {
     printf("< NPN_GetURLNotifyProc:%p, url: %s, window: %s, notifyData: %p\n", instance, url, window, notifyData);
 
-    strncpy(requests[nrequests].url, url, sizeof(requests[nrequests].url));
-    requests[nrequests].notifyData = notifyData;
-    requests[nrequests].completed = false;
-    nrequests++;
+    register_request(url, notifyData);
 
     return NPERR_NO_ERROR;
 }
