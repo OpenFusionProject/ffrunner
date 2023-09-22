@@ -264,3 +264,26 @@ those get served as "text/plain"
 < NPN_GetURLNotify "assetInfo.php"
 
 and then we're in the game
+
+
+if implemented, NPN_GetStringIdentifiers gets sent the JS object method names:
+08A5C114          08A4E5C4          "SendMessage"
+08A5C118          08A4E5B4          "SetSuspended"
+08A5C11C          08A4E5A0          "GetPluginVersion"
+08A5C120          08A4E590          "GetUnityVersion"
+
+If exists, NPN_GetStringIdentifier gets called on "style"...
+
+it doesn't seem like the value of "src" (main.unity3d) gets explictly requested by the plugin. It might be part of the protocol to load that one in after the other args.
+
+when loading the unity3d, the maximum buffer size appears to be 32KB (0x8000).
+
+NPN_GetValueProc plays a part in calling "MarkProgress(1)"
+
+opening the race rank page requires NPN_PostURLNotify().
+
+downloading the other asset bundles does not go through the browser at all.
+resizing the browser window leads to more calls to NPP_SetWindowProc, but going fullscreen does not.
+
+webplayer_win.dll gets loaded around the time main.unity3d is being written in.
+graphics become relevant around that time as well.

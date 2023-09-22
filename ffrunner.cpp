@@ -31,18 +31,6 @@ NPPluginFuncs pluginFuncs;
 NPSavedData saved;
 
 void
-printNPClass(NPClass *npclass)
-{
-#if 0
-    printf("structVersion: %d\n"
-    "construct: %p\n"
-    "allocate: %p\n"
-    "...\n",
-    npclass->structVersion, npclass->construct, npclass->allocate);
-#endif
-}
-
-void
 dispatch_requests(void)
 {
     int i;
@@ -71,6 +59,8 @@ dispatch_requests(void)
 
         printf("> NPP_URLNotify %s\n", requests[i].url);
         pluginFuncs.urlnotify(&npp, requests[i].url, NPRES_NETWORK_ERR, requests[i].notifyData);
+
+        requests[i].completed = true;
     }
 }
 
@@ -126,7 +116,6 @@ NPN_CreateObjectProc(NPP npp, NPClass *aClass)
 {
     printf("< NPN_CreateObjectProc\n");
     assert(aClass);
-    printNPClass(aClass);
 
     NPObject *npobj;
 
@@ -169,55 +158,31 @@ NPN_ReleaseObjectProc(NPObject *obj)
 }
 
 NPNetscapeFuncs netscapeFuncs;
-#if 0
-= {
-    .size = 224,
-    .version = 27,
-    .geturl = NPN_GetURLProc,
-    /* ... */
-    .uagent = NPN_UserAgentProc,
-    /* ... */
-    .geturlnotify = NPN_GetURLNotifyProc,
-    /* ... */
-    .releaseobject = NPN_ReleaseObjectProc,
-    /* ... */
-    .invoke = NPN_InvokeProc,
-    /* ... */
-    .getproperty = NPN_GetPropertyProc,
-    /* ... */
-    .createobject = NPN_CreateObjectProc,
-    .retainobject = NPN_RetainObjectProc,
-    /* ... */
-    .releasevariantvalue = NPN_ReleaseVariantValueProc,
-};
-#endif
 
-int
-main(void)
+void
+initNetscapeFuncs(void)
 {
     netscapeFuncs.size = 224;
     netscapeFuncs.version = 27;
     netscapeFuncs.geturl = NPN_GetURLProc;
-    /* ... */
     netscapeFuncs.uagent = NPN_UserAgentProc;
-    /* ... */
     netscapeFuncs.geturlnotify = NPN_GetURLNotifyProc;
-    /* ... */
     netscapeFuncs.releaseobject = NPN_ReleaseObjectProc;
-    /* ... */
     netscapeFuncs.invoke = NPN_InvokeProc;
-    /* ... */
     netscapeFuncs.getproperty = NPN_GetPropertyProc;
-    /* ... */
     netscapeFuncs.createobject = NPN_CreateObjectProc;
     netscapeFuncs.retainobject = NPN_RetainObjectProc;
-    /* ... */
     netscapeFuncs.releasevariantvalue = NPN_ReleaseVariantValueProc;
+}
 
-
+int
+main(void)
+{
     char *cwd = getcwd(NULL, 0);
     printf("setenv(\"%s\")\n", cwd);
     SetEnvironmentVariable("UNITY_HOME_DIR", cwd);
+
+    initNetscapeFuncs();
 
     printf("LoadLibraryA\n");
     HMODULE loader = LoadLibraryA("npUnity3D32.dll");
@@ -278,6 +243,7 @@ main(void)
     HWND hwnd = CreateWindowA("STATIC", "FusionFall", WS_OVERLAPPEDWINDOW, CW_USEDEFAULT, 0, CW_USEDEFAULT, 0, 0, 0, GetModuleHandleA(0), 0);
     assert(hwnd);
 
+    // TODO: uncomment this
     //ShowWindow(hwnd, SW_SHOWDEFAULT);
     //UpdateWindow(hwnd);
 
@@ -297,22 +263,16 @@ main(void)
 
     NPObject *scriptableObject = NULL;
 
+    // TODO: this is probably unnecessary here
     printf("> NPP_GetValueProc\n");
     ret = pluginFuncs.getvalue(&npp, NPPVpluginScriptableNPObject, &scriptableObject);
     printf("returned %d and NPObject %p\n", ret, scriptableObject);
 
     assert(scriptableObject->_class);
-    printNPClass(scriptableObject->_class);
 
-    NPIdentifier *items;
-    int itemcount;
+    // TODO: initiate a request for src=main.unity3d
 
-    // enumerate() isn't implented. invoke() looks to be the way to go.
-#if 0
-    printf("run NPEnumerationFunction\n");
-    scriptableObject->_class->enumerate(scriptableObject, &items, &itemcount);
-    printf("returned %d items\n", itemcount);
-#endif
+    // TODO: main loop with dispatch_requests()
 
     return 0;
 }
