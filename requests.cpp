@@ -28,6 +28,12 @@ rewrite_url(std::string input)
 {
     if (input == "http://cdn.dexlabs.systems/ff/big/beta-20100104/main.unity3d")
         return "assets/main.unity3d";
+    else if (input == "loginInfo.php")
+        return "assets/loginInfo.php";
+    else if (input == "images.php")
+        return "assets/images.php";
+    else if (input == "sponsor.php")
+        return "assets/sponsor.php";
     else
         return input;
 }

@@ -291,3 +291,38 @@ graphics become relevant around that time as well.
 when opening a stream to send src, notifyData is empty in the NPStream, the headers are filled in, and there doesn't seem to be any other indicator to set it apart from other requests.
 
 paused src NewStream investigation at 10002dfc.
+0379F2EC
+0379f318 *ret_value
+03C22B70
+
+browser object NPObject:
+$1 = {
+  _class = 0x3253218,
+  referenceCount = 2
+}
+
+browser object NPClass:
+$1 = {
+  structVersion = 3,
+  allocate = 0x26d1bb0,
+  deallocate = 0x26d1bc0,
+  invalidate = 0x26d1bf0,
+  hasMethod = 0x26d1380,
+  invoke = 0x26d1410,
+  invokeDefault = 0x26d1430,
+  hasProperty = 0x26d1450,
+  getProperty = 0x26d1520,
+  setProperty = 0x26d16a0,
+  removeProperty = 0x26d17a0,
+  enumerate = 0x26d1870,
+  construct = 0x26d1980
+}
+
+4: [esp+10] 0379F2F4 0379F2F4
+0379F2E8                  0379F304                 &"MarkProgress(1);"
+
+0379F2B8                  08A23B27                 return to npunity3d32.08A23B27 from npunity3d32.08A22548
+0379F2BC                  08A5C114                 npunity3d32.08A5C114
+0379F2C0                  00000004
+0379F2C4                  08A5D51C                 npunity3d32.08A5D51C
+
