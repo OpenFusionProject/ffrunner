@@ -1,3 +1,4 @@
+#include <cstdint>
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdint.h>
@@ -22,6 +23,15 @@
 
 std::map<void*, Request*> requests;
 
+std::string
+rewrite_url(std::string input)
+{
+    if (input == "http://cdn.dexlabs.systems/ff/big/beta-20100104/main.unity3d")
+        return "assets/main.unity3d";
+    else
+        return input;
+}
+
 void
 file_handler(Request *req, NPReason *res)
 {
@@ -37,55 +47,47 @@ file_handler(Request *req, NPReason *res)
         .notifyData = req->notifyData,
     };
 
-    f = fopen(req->url.c_str(), "r");
+    std::string path = rewrite_url(req->url);
+
+    f = fopen(path.c_str(), "rb");
     if (!f) {
         perror("fopen");
-        *res = NPRES_NETWORK_ERR;
-        return;
+        goto failEarly;
     }
 
     // seek for ftell()
     ret = fseek(f, 0, SEEK_END);
     if (ret < 0) {
         perror("fseek");
-        *res = NPRES_NETWORK_ERR;
-        return;
+        goto failWithOpenFile;
     }
     npstream.end = ftell(f);
 
     // seek back to start
-    ret = fseek(f, 0, SEEK_SET);
-    if (ret < 0) {
-        perror("fseek");
-        *res = NPRES_NETWORK_ERR;
-        return;
-    }
+    rewind(f);
 
     printf("> NPP_NewStream %s\n", req->url.c_str());
     npErr = pluginFuncs.newstream(&npp, (char*)req->mimeType.c_str(), &npstream, 0, &streamtype); // TODO: set seekable?
     printf("returned %d\n", npErr);
-    assert(streamtype == NP_NORMAL);
-
     if (npErr != NPERR_NO_ERROR) {
-        *res = NPRES_NETWORK_ERR;
-        return;
+        goto failWithOpenFile;
     }
+    assert(streamtype == NP_NORMAL);
 
     for (offset = 0; offset < npstream.end; offset += bytesRead) {
         printf("> NPP_WriteReady\n");
         wantbufsize = pluginFuncs.writeready(&npp, &npstream);
-        printf("returned %d\n", wantbufsize);
+        //printf("returned %d\n", wantbufsize);
 
-        //
+        // pick the smallest buffer size out of hardcoded, plugin-desired and bytes left in file
         wantbufsize = MIN(MIN(wantbufsize, npstream.end - offset), REQUEST_BUFFER_SIZE);
 
         printf("* fread %d bytes at offset %d\n", wantbufsize, offset);
-        bytesRead = fread(req->data, wantbufsize, 1, f);
+        bytesRead = fread(req->data, 1, wantbufsize, f);
         printf("returned %d\n", bytesRead);
         if (bytesRead < wantbufsize) {
             if (ferror(f)) {
                 perror("fread");
-                *res = NPRES_NETWORK_ERR;
                 goto failInStream;
             }
             if (feof(f))
@@ -101,19 +103,26 @@ file_handler(Request *req, NPReason *res)
         printf("returned %d\n", bytesWritten);
 
         if (bytesWritten < 0 || bytesWritten < bytesRead) {
-            *res = NPRES_NETWORK_ERR;
             goto failInStream;
         }
     }
 
-    printf("NPP_DestroyStream %s\n", req->url.c_str());
+    printf("NPP_DestroyStream %s\n", path.c_str());
     pluginFuncs.destroystream(&npp, &npstream, NPRES_DONE);
+
+    fclose(f);
 
     return;
 
 failInStream:
-    printf("NPP_DestroyStream FAIL %s\n", req->url.c_str());
+    printf("NPP_DestroyStream FAIL %s\n", path.c_str());
     pluginFuncs.destroystream(&npp, &npstream, NPRES_NETWORK_ERR);
+
+failWithOpenFile:
+    fclose(f);
+
+failEarly:
+    *res = NPRES_NETWORK_ERR;
 }
 
 

@@ -289,3 +289,5 @@ webplayer_win.dll gets loaded around the time main.unity3d is being written in.
 graphics become relevant around that time as well.
 
 when opening a stream to send src, notifyData is empty in the NPStream, the headers are filled in, and there doesn't seem to be any other indicator to set it apart from other requests.
+
+paused src NewStream investigation at 10002dfc.
