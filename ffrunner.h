@@ -1,4 +1,5 @@
 #define USERAGENT "ffrunner"
+#define CLASS_NAME "FFWINDOW"
 #define REQUEST_BUFFER_SIZE 0x8000
 #define REVISIONS_PLIST "http://webplayer.unity3d.com/autodownload_webplugin_beta/revisions.plist"
 #define WIDTH 1280

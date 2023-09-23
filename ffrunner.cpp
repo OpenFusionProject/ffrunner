@@ -221,12 +221,14 @@ main(void)
 
     register_request("http://cdn.dexlabs.systems/ff/big/beta-20100104/main.unity3d", NULL);
 
-    // TODO: main loop with handle_requests()
+    message_loop();
+    /*
     for (;;) {
         message_loop();
         handle_requests();
         sleep(50);
     }
+    */
 
     return 0;
 }

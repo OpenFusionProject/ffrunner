@@ -23,8 +23,8 @@ window_proc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
     switch (uMsg) {
     case WM_DESTROY:
         PostQuitMessage(0);
-        exit(0);
-        //return 0;
+        //exit(0);
+        return 0;
 
     case WM_PAINT:
         {
@@ -47,8 +47,6 @@ window_proc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 HWND
 prepare_window(void)
 {
-    char CLASS_NAME[] = "FFWINDOW";
-
     WNDCLASS wc = { };
 
     wc.lpfnWndProc   = window_proc;
@@ -70,5 +68,6 @@ message_loop(void)
     {
         TranslateMessage(&msg);
         DispatchMessage(&msg);
+        handle_requests();
     }
 }
