@@ -3,10 +3,12 @@
 #define REVISIONS_PLIST "http://webplayer.unity3d.com/autodownload_webplugin_beta/revisions.plist"
 
 #define ARRLEN(x) (sizeof(x)/sizeof(*x))
+#define MIN(a, b) (a > b ? b : a)
 
 struct Request {
     void *notifyData;
     std::string url;
+    std::string mimeType = "application/octet-stream";
     uint8_t data[REQUEST_BUFFER_SIZE] = {};
 
     Request(std::string u, void *nd) : url(u), notifyData(nd) {}

@@ -57,7 +57,7 @@ NPN_GetPropertyProc(NPP npp, NPObject *obj, NPIdentifier propertyName, NPVariant
 bool
 NPN_InvokeProc(NPP npp, NPObject* obj, NPIdentifier methodName, const NPVariant *args, uint32_t argCount, NPVariant *result)
 {
-    printf("< NPN_InvokeProc:%p, obj: %s, methodName: %p, argCount:%d\n", npp, obj, methodName, argCount);
+    printf("< NPN_InvokeProc:%p, obj: %p, methodName: %p, argCount:%d\n", npp, obj, methodName, argCount);
     return false;
 }
 
@@ -154,10 +154,6 @@ main(void)
     ret = NP_Initialize(&netscapeFuncs);
     printf("returned %d\n", ret);
 
-    printf("print members\n");
-    printf("size: %d, version: %d\n", pluginFuncs.size, pluginFuncs.version);
-    printf("%#p\n", pluginFuncs.newp);
-
     char *argn[] = {
         "src",
         "type",
@@ -225,8 +221,11 @@ main(void)
     assert(scriptableObject->_class);
 
     // TODO: initiate a request for src=main.unity3d
+    uint32_t zero = 0;
+    register_request("http://cdn.dexlabs.systems/ff/big/beta-20100104/main.unity3d", &zero);
 
     // TODO: main loop with handle_requests()
+    handle_requests();
 
     return 0;
 }
