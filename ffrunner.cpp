@@ -6,7 +6,6 @@
 #include <unistd.h>
 #include <assert.h>
 
-#include <map>
 #include <string>
 
 #include <windows.h>
@@ -190,7 +189,7 @@ main(void)
 
     handle_requests();
 
-    HWND hwnd = CreateWindowA("STATIC", "FusionFall", WS_OVERLAPPEDWINDOW, CW_USEDEFAULT, 0, CW_USEDEFAULT, 0, 0, 0, GetModuleHandleA(0), 0);
+    HWND hwnd = prepare_window();
     assert(hwnd);
 
     // TODO: uncomment this
@@ -224,6 +223,7 @@ main(void)
 
     // TODO: main loop with handle_requests()
     for (;;) {
+        message_loop();
         handle_requests();
         sleep(50);
     }

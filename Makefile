@@ -1,6 +1,7 @@
 SRC=\
 	ffrunner.cpp\
 	requests.cpp\
+	graphics.cpp\
 
 HDR=\
 	npapi/npapi.h\

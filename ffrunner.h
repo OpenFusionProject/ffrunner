@@ -1,6 +1,8 @@
 #define USERAGENT "ffrunner"
 #define REQUEST_BUFFER_SIZE 0x8000
 #define REVISIONS_PLIST "http://webplayer.unity3d.com/autodownload_webplugin_beta/revisions.plist"
+#define WIDTH 1280
+#define HEIGHT 720
 
 #define ARRLEN(x) (sizeof(x)/sizeof(*x))
 #define MIN(a, b) (a > b ? b : a)
@@ -20,3 +22,6 @@ extern NPNetscapeFuncs netscapeFuncs;
 
 void handle_requests(void);
 void register_request(const char *url, void *notifyData);
+
+HWND prepare_window(void);
+void message_loop(void);

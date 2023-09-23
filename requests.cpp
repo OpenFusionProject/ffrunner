@@ -107,6 +107,8 @@ file_handler(Request *req, NPReason *res)
         }
     }
 
+    printf("* done processing file of size %d\n", offset);
+
     printf("NPP_DestroyStream %s\n", path.c_str());
     pluginFuncs.destroystream(&npp, &npstream, NPRES_DONE);
 
