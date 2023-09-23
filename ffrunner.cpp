@@ -194,8 +194,8 @@ main(void)
     assert(hwnd);
 
     // TODO: uncomment this
-    //ShowWindow(hwnd, SW_SHOWDEFAULT);
-    //UpdateWindow(hwnd);
+    ShowWindow(hwnd, SW_SHOWDEFAULT);
+    UpdateWindow(hwnd);
 
     NPWindow npWin = {
         .window = hwnd,
@@ -220,12 +220,13 @@ main(void)
 
     assert(scriptableObject->_class);
 
-    // TODO: initiate a request for src=main.unity3d
-    uint32_t zero = 0;
-    register_request("http://cdn.dexlabs.systems/ff/big/beta-20100104/main.unity3d", &zero);
+    register_request("http://cdn.dexlabs.systems/ff/big/beta-20100104/main.unity3d", NULL);
 
     // TODO: main loop with handle_requests()
-    handle_requests();
+    for (;;) {
+        handle_requests();
+        sleep(50);
+    }
 
     return 0;
 }

@@ -75,16 +75,16 @@ file_handler(Request *req, NPReason *res)
     assert(streamtype == NP_NORMAL);
 
     for (offset = 0; offset < npstream.end; offset += bytesRead) {
-        printf("> NPP_WriteReady\n");
+        //printf("> NPP_WriteReady\n");
         wantbufsize = pluginFuncs.writeready(&npp, &npstream);
         //printf("returned %d\n", wantbufsize);
 
         // pick the smallest buffer size out of hardcoded, plugin-desired and bytes left in file
         wantbufsize = MIN(MIN(wantbufsize, npstream.end - offset), REQUEST_BUFFER_SIZE);
 
-        printf("* fread %d bytes at offset %d\n", wantbufsize, offset);
+        //printf("* fread %d bytes at offset %d\n", wantbufsize, offset);
         bytesRead = fread(req->data, 1, wantbufsize, f);
-        printf("returned %d\n", bytesRead);
+        //printf("returned %d\n", bytesRead);
         if (bytesRead < wantbufsize) {
             if (ferror(f)) {
                 perror("fread");
@@ -98,9 +98,9 @@ file_handler(Request *req, NPReason *res)
         if (bytesRead == 0)
             break;
 
-        printf("> NPP_Write %d bytes at offset %d\n", bytesRead, offset);
+        //printf("> NPP_Write %d bytes at offset %d\n", bytesRead, offset);
         bytesWritten = pluginFuncs.write(&npp, &npstream, offset, bytesRead, req->data);
-        printf("returned %d\n", bytesWritten);
+        //printf("returned %d\n", bytesWritten);
 
         if (bytesWritten < 0 || bytesWritten < bytesRead) {
             goto failInStream;
