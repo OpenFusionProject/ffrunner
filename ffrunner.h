@@ -13,8 +13,9 @@ struct Request {
     std::string url;
     std::string mimeType = "application/octet-stream";
     uint8_t data[REQUEST_BUFFER_SIZE] = {};
+    bool doNotify;
 
-    Request(std::string u, void *nd) : url(u), notifyData(nd) {}
+    Request(std::string u, void *nd, bool notify) : url(u), notifyData(nd), doNotify(notify) {}
 };
 
 extern NPP_t npp;
@@ -22,7 +23,7 @@ extern NPPluginFuncs pluginFuncs;
 extern NPNetscapeFuncs netscapeFuncs;
 
 void handle_requests(void);
-void register_request(const char *url, void *notifyData);
+void register_request(const char *url, void *notifyData, bool doNotify);
 
 HWND prepare_window(void);
 void message_loop(void);

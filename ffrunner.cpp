@@ -56,6 +56,10 @@ NPError
 NPN_GetURLProc(NPP instance, const char* url, const char* window)
 {
     printf("< NPN_GetURLProcPtr:%p, url: %s, window: %s\n", instance, url, window);
+
+    // TODO: uncomment this after switching from std::map to a C array. can't use notifyData for the key.
+    //register_request(url, notifyData, false);
+
     return NPERR_NO_ERROR;
 }
 
@@ -64,7 +68,7 @@ NPN_GetURLNotifyProc(NPP instance, const char* url, const char* window, void* no
 {
     printf("< NPN_GetURLNotifyProc:%p, url: %s, window: %s, notifyData: %p\n", instance, url, window, notifyData);
 
-    register_request(url, notifyData);
+    register_request(url, notifyData, true);
 
     return NPERR_NO_ERROR;
 }
@@ -519,7 +523,7 @@ main(void)
 
     handle_requests();
 
-    register_request("http://cdn.dexlabs.systems/ff/big/beta-20100104/main.unity3d", NULL);
+    register_request("http://cdn.dexlabs.systems/ff/big/beta-20100104/main.unity3d", NULL, true);
 
     message_loop();
     /*

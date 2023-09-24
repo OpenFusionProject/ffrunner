@@ -57,7 +57,7 @@ file_handler(Request *req, NPReason *res)
 
     f = fopen(path.c_str(), "rb");
     if (!f) {
-        perror("fopen");
+        perror(path.c_str());
         goto failEarly;
     }
 
@@ -171,15 +171,17 @@ handle_requests(void)
         }
         // TODO: else default handler
 
-        printf("> NPP_URLNotify %d %s\n", res, req->url.c_str());
-        pluginFuncs.urlnotify(&npp, req->url.c_str(), res, req->notifyData);
+        if (req->doNotify) {
+            printf("> NPP_URLNotify %d %s\n", res, req->url.c_str());
+            pluginFuncs.urlnotify(&npp, req->url.c_str(), res, req->notifyData);
+        }
     }
 
     requests.clear();
 }
 
 void
-register_request(const char *url, void *notifyData)
+register_request(const char *url, void *notifyData, bool doNotify)
 {
-    requests[notifyData] = new Request(std::string(url), notifyData);
+    requests[notifyData] = new Request(std::string(url), notifyData, doNotify);
 }

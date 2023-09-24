@@ -70,6 +70,39 @@ prepare_window(void)
 void
 message_loop(void)
 {
+#if 0
+    bool bGotMsg;
+    MSG  msg;
+    msg.message = WM_NULL;
+    PeekMessage(&msg, NULL, 0U, 0U, PM_NOREMOVE);
+
+    while (WM_QUIT != msg.message)
+    {
+        // Process window events.
+        // Use PeekMessage() so we can use idle time to render the scene.
+        bGotMsg = (PeekMessage(&msg, NULL, 0U, 0U, PM_REMOVE) != 0);
+
+        if (bGotMsg)
+        {
+            // Translate and dispatch the message
+            TranslateMessage(&msg);
+            DispatchMessage(&msg);
+        }
+        else
+        {
+            // Update the scene.
+            renderer->Update();
+
+            // Render frames during idle time (when no messages are waiting).
+            renderer->Render();
+
+            // Present the frame to the screen.
+            deviceResources->Present();
+
+            handle_requests();
+        }
+    }
+#else
     MSG msg = { };
     int i = 0;
 
@@ -81,4 +114,5 @@ message_loop(void)
         DispatchMessage(&msg);
         handle_requests();
     }
+#endif
 }
