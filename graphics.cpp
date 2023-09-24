@@ -17,6 +17,8 @@
 
 #include "ffrunner.h"
 
+HWND global_handle;
+
 LRESULT CALLBACK
 window_proc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 {
@@ -25,7 +27,7 @@ window_proc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
         PostQuitMessage(0);
         //exit(0);
         return 0;
-
+#if 1
     case WM_PAINT:
         {
             PAINTSTRUCT ps;
@@ -38,7 +40,7 @@ window_proc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
             EndPaint(hwnd, &ps);
         }
         return 0;
-
+#endif
     }
 
     return DefWindowProc(hwnd, uMsg, wParam, lParam);
@@ -55,7 +57,9 @@ prepare_window(void)
 
     RegisterClass(&wc);
 
-    HWND hwnd = CreateWindowExA(0, CLASS_NAME, "FusionFall", WS_OVERLAPPEDWINDOW, CW_USEDEFAULT, 0, CW_USEDEFAULT, 0, 0, 0, GetModuleHandleA(0), 0);
+    HWND hwnd = CreateWindowExA(0, CLASS_NAME, "FusionFall", WS_OVERLAPPEDWINDOW, CW_USEDEFAULT, CW_USEDEFAULT, WIDTH, HEIGHT, 0, 0, GetModuleHandleA(0), 0);
+
+    global_handle = hwnd;
 
     ShowWindow(hwnd, SW_SHOWDEFAULT);
     UpdateWindow(hwnd);
@@ -67,8 +71,12 @@ void
 message_loop(void)
 {
     MSG msg = { };
+    int i = 0;
+
     while (GetMessage(&msg, NULL, 0, 0) > 0)
     {
+        //printf("got message %d\n", ++i);
+        UpdateWindow(global_handle); // TODO: didn't help'
         TranslateMessage(&msg);
         DispatchMessage(&msg);
         handle_requests();

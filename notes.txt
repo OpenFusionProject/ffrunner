@@ -326,3 +326,107 @@ $1 = {
 0379F2C0                  00000004
 0379F2C4                  08A5D51C                 npunity3d32.08A5D51C
 
+check if multiple calls to NPP_SetWindow have different params?
+
+========================================
+
+ffrunner
+=================
+CreateObject
+aClass: 0x1003c0e8
+npobj: 0x1b46a90
+
+NPP_GetValue
+scriptableObject: 0x1b46a90
+
+NPN_RetainObject (during handling of NPP_GetValue)
+0x1b46a90
+
+missing call to NPN_ReleaseObject?
+missing call to NPN_GetStringIdentifier?
+
+electron
+=================
+CreateObject
+0379F2E4                  03B568F0
+0379F2E8                  08A5C0E8                 npunity3d32.08A5C0E8
+
+NPP_GetValue
+scriptableObject: 08A71598
+
+NPN_RetainObject
+0379F540                  08A71598
+
+NPN_ReleaseObject
+08A71598
+
+NPN_GetStringIdentifier
+"style"
+
+NPN_GetStringIdentifier (two of them?)
+"style"
+
+call to plugin-owned NPObject_hasMethod, invoked by browser
+08A71598
+"style"
+
+NPP_SetWindow
+
+
+
+=========================================
+
+
+NPP_SetWindow (initial call)
+0379F52C                  039714A4
+$1 = {
+  window = 0x400ec,
+  x = 0,
+  y = 0,
+  width = 1272,
+  height = 680,
+  clipRect = {
+    top = 0,
+    left = 0,
+    bottom = 680,
+    right = 1272
+  },
+  type = NPWindowTypeWindow
+}
+
+NPP_SetWindow
+0379F594                  03B568B0
+$1 = {
+  window = 0x400ec,
+  x = 0,
+  y = 0,
+  width = 1272,
+  height = 680,
+  clipRect = {
+    top = 0,
+    left = 0,
+    bottom = 0,
+    right = 0
+  },
+  type = NPWindowTypeWindow
+}
+
+only the clip rect has changed
+
+NPP_SetWindow (immediately after the previous one)
+0379F598                  039714A4
+$1 = {
+  window = 0x400ec,
+  x = 0,
+  y = 0,
+  width = 1272,
+  height = 693,
+  clipRect = {
+    top = 0,
+    left = 0,
+    bottom = 693,
+    right = 1272
+  },
+  type = NPWindowTypeWindow
+}
+

@@ -325,8 +325,73 @@ initBrowserObject(void)
 }
 
 void
+unhandled(void)
+{
+    printf("< UNHANDLED!!!\n");
+}
+
+void
 initNetscapeFuncs(void)
 {
+#if 1
+    // none of these seem to be getting hit. -fpermissive allows compile.
+    netscapeFuncs.geturl = unhandled;
+    netscapeFuncs.posturl = unhandled;
+    netscapeFuncs.requestread = unhandled;
+    netscapeFuncs.newstream = unhandled;
+    netscapeFuncs.write = unhandled;
+    netscapeFuncs.destroystream = unhandled;
+    netscapeFuncs.status = unhandled;
+    netscapeFuncs.uagent = unhandled;
+    netscapeFuncs.memalloc = unhandled;
+    netscapeFuncs.memfree = unhandled;
+    netscapeFuncs.memflush = unhandled;
+    netscapeFuncs.reloadplugins = unhandled;
+    netscapeFuncs.getJavaEnv = unhandled;
+    netscapeFuncs.getJavaPeer = unhandled;
+    netscapeFuncs.geturlnotify = unhandled;
+    netscapeFuncs.posturlnotify = unhandled;
+    netscapeFuncs.getvalue = unhandled;
+    netscapeFuncs.setvalue = unhandled;
+    netscapeFuncs.invalidaterect = unhandled;
+    netscapeFuncs.invalidateregion = unhandled;
+    netscapeFuncs.forceredraw = unhandled;
+    netscapeFuncs.getstringidentifier = unhandled;
+    netscapeFuncs.getstringidentifiers = unhandled;
+    netscapeFuncs.getintidentifier = unhandled;
+    netscapeFuncs.identifierisstring = unhandled;
+    netscapeFuncs.utf8fromidentifier = unhandled;
+    netscapeFuncs.intfromidentifier = unhandled;
+    netscapeFuncs.createobject = unhandled;
+    netscapeFuncs.retainobject = unhandled;
+    netscapeFuncs.releaseobject = unhandled;
+    netscapeFuncs.invoke = unhandled;
+    netscapeFuncs.invokeDefault = unhandled;
+    netscapeFuncs.evaluate = unhandled;
+    netscapeFuncs.getproperty = unhandled;
+    netscapeFuncs.setproperty = unhandled;
+    netscapeFuncs.removeproperty = unhandled;
+    netscapeFuncs.hasproperty = unhandled;
+    netscapeFuncs.hasmethod = unhandled;
+    netscapeFuncs.releasevariantvalue = unhandled;
+    netscapeFuncs.setexception = unhandled;
+    netscapeFuncs.pushpopupsenabledstate = unhandled;
+    netscapeFuncs.poppopupsenabledstate = unhandled;
+    netscapeFuncs.enumerate = unhandled;
+    netscapeFuncs.pluginthreadasynccall = unhandled;
+    netscapeFuncs.construct = unhandled;
+    netscapeFuncs.getvalueforurl = unhandled;
+    netscapeFuncs.setvalueforurl = unhandled;
+    netscapeFuncs.getauthenticationinfo = unhandled;
+    netscapeFuncs.scheduletimer = unhandled;
+    netscapeFuncs.unscheduletimer = unhandled;
+    netscapeFuncs.popupcontextmenu = unhandled;
+    netscapeFuncs.convertpoint = unhandled;
+    netscapeFuncs.handleevent = unhandled;
+    netscapeFuncs.unfocusinstance = unhandled;
+    netscapeFuncs.urlredirectresponse = unhandled;
+#endif
+
     netscapeFuncs.size = 224;
     netscapeFuncs.version = 27;
     netscapeFuncs.geturl = NPN_GetURLProc;
@@ -342,6 +407,7 @@ initNetscapeFuncs(void)
     netscapeFuncs.evaluate = NPN_EvaluateProc;
     netscapeFuncs.getstringidentifier = NPN_GetStringIdentifierProc;
     netscapeFuncs.getstringidentifiers = NPN_GetStringIdentifiersProc;
+
 }
 
 int
@@ -371,6 +437,7 @@ main(void)
     printf("returned %d\n", ret);
 
     char *argn[] = {
+        "id",
         "src",
         "type",
         "pluginspage",
@@ -383,8 +450,10 @@ main(void)
         "logoimage",
         "progressbarimage",
         "progressframeimage",
+        "style",
     };
     char *argv[] = {
+        "unityEmbed",
         "http://cdn.dexlabs.systems/ff/big/beta-20100104/main.unity3d",
         "application/vnd.ffuwp",
         "http://www.unity3d.com/unity-web-player-2.x",
@@ -397,6 +466,7 @@ main(void)
         "assets/img/unity-dexlabs.png",
         "assets/img/unity-loadingbar.png",
         "assets/img/unity-loadingframe.png",
+        "width: 1272px;"
     };
     assert(ARRLEN(argn) == ARRLEN(argv));
 
@@ -404,17 +474,15 @@ main(void)
     ret = pluginFuncs.newp("application/vnd.ffuwp", &npp, 1, ARRLEN(argn), argn, argv, &saved);
     printf("returned %d\n", ret);
 
-    handle_requests();
-
     HWND hwnd = prepare_window();
     assert(hwnd);
 
     NPWindow npWin = {
         .window = hwnd,
         .x = 0, .y = 0,
-        .width = 1280, .height = 720,
+        .width = 1272, .height = 680,
         .clipRect = {
-            0, 0, 1280, 720
+            0, 0, 680, 1272
         },
         .type = NPWindowTypeWindow
     };
@@ -429,8 +497,27 @@ main(void)
     printf("> NPP_GetValueProc\n");
     ret = pluginFuncs.getvalue(&npp, NPPVpluginScriptableNPObject, &scriptableObject);
     printf("returned %d and NPObject %p\n", ret, scriptableObject);
-
     assert(scriptableObject->_class);
+
+    printf("> scriptableObject.hasMethod style\n");
+    ret = scriptableObject->_class->hasMethod(scriptableObject, getNPIdentifier("style"));
+    printf("returned %d\n");
+
+    // trying to mimic the browser's calls as close as possible. isn't helping.
+    NPWindow npWin1 = npWin;
+    npWin1.clipRect = {0, 0, 0, 0};
+    printf("> NPP_SetWindowProc\n");
+    ret = pluginFuncs.setwindow(&npp, &npWin1);
+    printf("returned %d\n", ret);
+
+    NPWindow npWin2 = npWin1;
+    npWin2.height = 693;
+    npWin2.clipRect = {0, 0, 693, 1272};
+    printf("> NPP_SetWindowProc\n");
+    ret = pluginFuncs.setwindow(&npp, &npWin2);
+    printf("returned %d\n", ret);
+
+    handle_requests();
 
     register_request("http://cdn.dexlabs.systems/ff/big/beta-20100104/main.unity3d", NULL);
 

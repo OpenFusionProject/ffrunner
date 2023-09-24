@@ -13,7 +13,7 @@ HDR=\
 all: ffrunner.exe
 
 ffrunner.exe: $(SRC) $(HDR)
-	i686-w64-mingw32-g++ -static -static-libgcc -static-libstdc++ -Wno-write-strings -O0 -g $(SRC) -o ffrunner.exe
+	i686-w64-mingw32-g++ -static -static-libgcc -static-libstdc++ -fpermissive -Wno-write-strings -O0 -g $(SRC) -o ffrunner.exe
 
 gdbs:
 	wine /usr/share/win32/gdbserver.exe localhost:10000 ffrunner.exe
