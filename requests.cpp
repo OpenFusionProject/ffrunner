@@ -28,6 +28,10 @@ rewrite_url(std::string input)
 {
     if (input == "http://cdn.dexlabs.systems/ff/big/beta-20100104/main.unity3d")
         return "assets/main.unity3d";
+    else if (input == "rankurl.txt")
+        return "assets/rankurl.txt";
+    else if (input == "assetInfo.php")
+        return "assets/assetInfo.php";
     else if (input == "loginInfo.php")
         return "assets/loginInfo.php";
     else if (input == "images.php")
@@ -149,6 +153,7 @@ struct {
     ".png",            "image/png",                file_handler,
     "main.unity3d",    "application/octet-stream", file_handler,
     ".php",            "text/plain",               file_handler,
+    ".txt",            "text/plain",               file_handler,
 };
 
 void

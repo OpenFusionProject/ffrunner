@@ -90,7 +90,7 @@ NPN_GetPropertyProc(NPP npp, NPObject *obj, NPIdentifier propertyName, NPVariant
 bool
 NPN_InvokeProc(NPP npp, NPObject* obj, NPIdentifier methodName, const NPVariant *args, uint32_t argCount, NPVariant *result)
 {
-    printf("< NPN_InvokeProc:%p, obj: %p, methodName: %s, argCount:%d\n", npp, obj, methodName, argCount);
+    printf("< NPN_InvokeProc:%p, obj: %p, methodName: %p, argCount:%d\n", npp, obj, methodName, argCount);
     return false;
 }
 
@@ -225,6 +225,7 @@ void
 NPDeallocateFunction(NPObject *npobj)
 {
     printf("< NPDeallocateFunction %p\n", npobj);
+    assert(npobj != &browserObject);
 
     free(npobj);
 }
@@ -505,7 +506,7 @@ main(void)
 
     printf("> scriptableObject.hasMethod style\n");
     ret = scriptableObject->_class->hasMethod(scriptableObject, getNPIdentifier("style"));
-    printf("returned %d\n");
+    printf("returned %d\n", ret);
 
     // trying to mimic the browser's calls as close as possible. isn't helping.
     NPWindow npWin1 = npWin;
