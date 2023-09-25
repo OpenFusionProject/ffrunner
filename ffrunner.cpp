@@ -164,12 +164,20 @@ NPN_GetValueProc(NPP instance, NPNVariable variable, void *ret_value)
     return NPERR_NO_ERROR;
 }
 
+#define AUTH_CALLBACK_SCRIPT "authDoCallback(\"UnityEngine.GameObject\");"
+#define EXIT_CALLBACK_SCRIPT "HomePage(\"UnityEngine.GameObject\");"
+
 bool
 NPN_EvaluateProc(NPP npp, NPObject *obj, NPString *script, NPVariant *result)
 {
     printf("< NPN_EvaluateProc %s\n", script->UTF8Characters);
 
     // Evaluates JS calls, like MarkProgress(1), which doesn't need to do anything.
+    if (strcmp(script->UTF8Characters, EXIT_CALLBACK_SCRIPT) == 0) {
+        // Gracefully exit game.
+        PostQuitMessage(0);
+    }
+
     *result = {
         .type = NPVariantType_Void
     };
@@ -456,7 +464,7 @@ main(void)
         "logoimage",
         "progressbarimage",
         "progressframeimage",
-        "style",
+        //"style",
     };
     char *argv[] = {
         "unityEmbed",
@@ -472,7 +480,7 @@ main(void)
         "assets/img/unity-dexlabs.png",
         "assets/img/unity-loadingbar.png",
         "assets/img/unity-loadingframe.png",
-        "width: 1272px;"
+        //"width: 1272px;"
     };
     assert(ARRLEN(argn) == ARRLEN(argv));
 
@@ -486,9 +494,9 @@ main(void)
     npWin = {
         .window = hwnd,
         .x = 0, .y = 0,
-        .width = 1272, .height = 680,
+        .width = WIDTH, .height = HEIGHT,
         .clipRect = {
-            0, 0, 680, 1272
+            0, 0, HEIGHT, WIDTH
         },
         .type = NPWindowTypeWindow
     };
@@ -509,34 +517,11 @@ main(void)
     ret = scriptableObject->_class->hasMethod(scriptableObject, getNPIdentifier("style"));
     printf("returned %d\n", ret);
 
-#if 0
-    // trying to mimic the browser's calls as close as possible. isn't helping.
-    NPWindow npWin1 = npWin;
-    npWin1.clipRect = {0, 0, 0, 0};
-    printf("> NPP_SetWindowProc\n");
-    ret = pluginFuncs.setwindow(&npp, &npWin1);
-    printf("returned %d\n", ret);
-
-    NPWindow npWin2 = npWin1;
-    npWin2.height = 693;
-    npWin2.clipRect = {0, 0, 693, 1272};
-    printf("> NPP_SetWindowProc\n");
-    ret = pluginFuncs.setwindow(&npp, &npWin2);
-    printf("returned %d\n", ret);
-#endif
-
     handle_requests();
 
     register_request("http://cdn.dexlabs.systems/ff/big/beta-20100104/main.unity3d", NULL, true);
 
     message_loop();
-    /*
-    for (;;) {
-        message_loop();
-        handle_requests();
-        sleep(50);
-    }
-    */
 
     return 0;
 }
