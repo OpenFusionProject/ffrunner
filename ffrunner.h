@@ -21,6 +21,7 @@ struct Request {
 extern NPP_t npp;
 extern NPPluginFuncs pluginFuncs;
 extern NPNetscapeFuncs netscapeFuncs;
+extern NPWindow npWin;
 
 void handle_requests(void);
 void register_request(const char *url, void *notifyData, bool doNotify);

@@ -27,7 +27,6 @@ window_proc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
         PostQuitMessage(0);
         //exit(0);
         return 0;
-#if 1
     case WM_PAINT:
         {
             PAINTSTRUCT ps;
@@ -40,7 +39,14 @@ window_proc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
             EndPaint(hwnd, &ps);
         }
         return 0;
-#endif
+    case WM_SIZE:
+        UINT width = LOWORD(lParam);
+        UINT height = HIWORD(lParam);
+
+        npWin.width = npWin.clipRect.right = width;
+        npWin.height = npWin.clipRect.bottom = height;
+        pluginFuncs.setwindow(&npp, &npWin);
+        return 0;
     }
 
     return DefWindowProc(hwnd, uMsg, wParam, lParam);

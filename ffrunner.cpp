@@ -23,6 +23,7 @@ NPNetscapeFuncs netscapeFuncs;
 NPSavedData saved;
 NPObject browserObject;
 NPClass browserClass;
+NPWindow npWin;
 
 #define NPIDENTIFIERCOUNT 16
 #define NPSTRINGMAXSIZE 128
@@ -338,7 +339,7 @@ unhandled(void)
 void
 initNetscapeFuncs(void)
 {
-#if 1
+#if 0
     // none of these seem to be getting hit. -fpermissive allows compile.
     netscapeFuncs.geturl = unhandled;
     netscapeFuncs.posturl = unhandled;
@@ -482,7 +483,7 @@ main(void)
     HWND hwnd = prepare_window();
     assert(hwnd);
 
-    NPWindow npWin = {
+    npWin = {
         .window = hwnd,
         .x = 0, .y = 0,
         .width = 1272, .height = 680,
@@ -508,6 +509,7 @@ main(void)
     ret = scriptableObject->_class->hasMethod(scriptableObject, getNPIdentifier("style"));
     printf("returned %d\n", ret);
 
+#if 0
     // trying to mimic the browser's calls as close as possible. isn't helping.
     NPWindow npWin1 = npWin;
     npWin1.clipRect = {0, 0, 0, 0};
@@ -521,6 +523,7 @@ main(void)
     printf("> NPP_SetWindowProc\n");
     ret = pluginFuncs.setwindow(&npp, &npWin2);
     printf("returned %d\n", ret);
+#endif
 
     handle_requests();
 
