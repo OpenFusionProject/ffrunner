@@ -43,7 +43,7 @@ getNPIdentifier(const char *s)
         if (npidentifiers[i][0] == '\0')
             break;
     }
-    // make sure there's still room
+    /* make sure there's still room */
     assert(i < NPIDENTIFIERCOUNT-1);
 
     assert(npidentifiers[i][0] == '\0');
@@ -102,10 +102,10 @@ NPN_ReleaseVariantValueProc(NPVariant *variant)
 NPObject *
 NPN_CreateObjectProc(NPP npp, NPClass *aClass)
 {
+    NPObject *npobj;
+
     printf("< NPN_CreateObjectProc\n");
     assert(aClass);
-
-    NPObject *npobj;
 
     if (aClass->allocate)
         npobj = aClass->allocate(npp, aClass);
@@ -138,7 +138,7 @@ NPN_ReleaseObjectProc(NPObject *obj)
     obj->referenceCount--;
 
     if (obj->referenceCount == 0) {
-        // should never ask to deallocate the (statically allocated) browser window object
+        /* should never ask to deallocate the (statically allocated) browser window object */
         assert(obj != &browserObject);
 
         if (obj->_class && obj->_class->deallocate)
@@ -151,11 +151,12 @@ NPN_ReleaseObjectProc(NPObject *obj)
 NPError
 NPN_GetValueProc(NPP instance, NPNVariable variable, void *ret_value)
 {
+    NPObject **retPtr;
+
     printf("< NPN_GetValueProc %d\n", variable);
 
     browserObject.referenceCount++;
 
-    NPObject **retPtr;
     retPtr = (NPObject**)ret_value;
     *retPtr = &browserObject;
 
@@ -170,9 +171,9 @@ NPN_EvaluateProc(NPP npp, NPObject *obj, NPString *script, NPVariant *result)
 {
     printf("< NPN_EvaluateProc %s\n", script->UTF8Characters);
 
-    // Evaluates JS calls, like MarkProgress(1), which doesn't need to do anything.
+    /* Evaluates JS calls, like MarkProgress(1), most of which doesn't need to do anything. */
     if (strcmp(script->UTF8Characters, EXIT_CALLBACK_SCRIPT) == 0) {
-        // Gracefully exit game.
+        /* Gracefully exit game. */
         PostQuitMessage(0);
     }
 
@@ -194,9 +195,9 @@ NPN_GetStringIdentifierProc(const NPUTF8* name)
 void
 NPN_GetStringIdentifiersProc(const NPUTF8** names, int32_t nameCount, NPIdentifier* identifiers)
 {
-    printf("< NPN_GetStringIdentifiersProc %d\n", nameCount);
-
     int i;
+
+    printf("< NPN_GetStringIdentifiersProc %d\n", nameCount);
 
     for (i = 0; i < nameCount; i++) {
         identifiers[i] = getNPIdentifier(names[i]);
@@ -210,10 +211,10 @@ NPN_GetStringIdentifiersProc(const NPUTF8** names, int32_t nameCount, NPIdentifi
 NPObject *
 NPAllocateFunction(NPP instance, NPClass *aClass)
 {
+    NPObject *npobj;
+
     printf("< NPAllocateFunction %p\n", aClass);
     assert(aClass);
-
-    NPObject *npobj;
 
     if (aClass->allocate)
         npobj = aClass->allocate(instance, aClass);
@@ -425,7 +426,13 @@ initNetscapeFuncs(void)
 int
 main(void)
 {
-    char *cwd = getcwd(NULL, 0);
+    char *cwd;
+    NPError ret;
+    NPObject *scriptableObject;
+    HMODULE loader;
+    HWND hwnd;
+
+    cwd = getcwd(NULL, 0);
     printf("setenv(\"%s\")\n", cwd);
     SetEnvironmentVariable("UNITY_HOME_DIR", cwd);
 
@@ -433,7 +440,7 @@ main(void)
     initBrowserObject();
 
     printf("LoadLibraryA\n");
-    HMODULE loader = LoadLibraryA("npUnity3D32.dll");
+    loader = LoadLibraryA("npUnity3D32.dll");
 
     printf("GetProcAddress\n");
     NP_GetEntryPointsFunc NP_GetEntryPoints = (NP_GetEntryPointsFunc)GetProcAddress(loader, "NP_GetEntryPoints");
@@ -441,7 +448,7 @@ main(void)
     NP_ShutdownFunc NP_Shutdown = (NP_ShutdownFunc)GetProcAddress(loader, "NP_Shutdown");
 
     printf("> NP_GetEntryPoints\n");
-    NPError ret = NP_GetEntryPoints(&pluginFuncs);
+    ret = NP_GetEntryPoints(&pluginFuncs);
     printf("returned %d\n", ret);
 
     printf("> NP_Initialize\n");
@@ -466,7 +473,7 @@ main(void)
     };
     char *argv[] = {
         "unityEmbed",
-        "http://cdn.dexlabs.systems/ff/big/beta-20100104/main.unity3d",
+        SRC_URL,
         "application/vnd.ffuwp",
         "http://www.unity3d.com/unity-web-player-2.x",
         "1280",
@@ -486,7 +493,7 @@ main(void)
     ret = pluginFuncs.newp("application/vnd.ffuwp", &npp, 1, ARRLEN(argn), argn, argv, &saved);
     printf("returned %d\n", ret);
 
-    HWND hwnd = prepare_window();
+    hwnd = prepare_window();
     assert(hwnd);
 
     npWin = (NPWindow){
@@ -503,9 +510,6 @@ main(void)
     ret = pluginFuncs.setwindow(&npp, &npWin);
     printf("returned %d\n", ret);
 
-    NPObject *scriptableObject = NULL;
-
-    // TODO: this is probably unnecessary here
     printf("> NPP_GetValueProc\n");
     ret = pluginFuncs.getvalue(&npp, NPPVpluginScriptableNPObject, &scriptableObject);
     printf("returned %d and NPObject %p\n", ret, scriptableObject);
@@ -517,7 +521,7 @@ main(void)
 
     handle_requests();
 
-    register_request("http://cdn.dexlabs.systems/ff/big/beta-20100104/main.unity3d", NULL, true);
+    register_request(SRC_URL, NULL, true);
 
     message_loop();
 

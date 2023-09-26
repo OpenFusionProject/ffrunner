@@ -3,6 +3,7 @@
 #define REQUEST_BUFFER_SIZE 0x8000
 #define MAX_CONCURRENT_REQUESTS 64
 #define MAX_URL_LENGTH 256
+#define SRC_URL "http://cdn.dexlabs.systems/ff/big/beta-20100104/main.unity3d"
 #define REVISIONS_PLIST "http://webplayer.unity3d.com/autodownload_webplugin_beta/revisions.plist"
 #define WIDTH 1280
 #define HEIGHT 720

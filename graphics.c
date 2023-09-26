@@ -31,7 +31,7 @@ window_proc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
     case WM_PAINT:
         hdc = BeginPaint(hwnd, &ps);
 
-        // All painting occurs here, between BeginPaint and EndPaint.
+        /* All painting occurs here, between BeginPaint and EndPaint. */
 
         FillRect(hdc, &ps.rcPaint, (HBRUSH) (COLOR_WINDOW+1));
 
@@ -54,6 +54,7 @@ HWND
 prepare_window(void)
 {
     WNDCLASS wc = {0};
+    HWND hwnd;
 
     wc.lpfnWndProc   = window_proc;
     wc.hInstance     = GetModuleHandleA(NULL);
@@ -61,7 +62,7 @@ prepare_window(void)
 
     RegisterClass(&wc);
 
-    HWND hwnd = CreateWindowExA(0, CLASS_NAME, "FusionFall", WS_OVERLAPPEDWINDOW, CW_USEDEFAULT, CW_USEDEFAULT, WIDTH, HEIGHT, 0, 0, GetModuleHandleA(0), 0);
+    hwnd = CreateWindowExA(0, CLASS_NAME, "FusionFall", WS_OVERLAPPEDWINDOW, CW_USEDEFAULT, CW_USEDEFAULT, WIDTH, HEIGHT, 0, 0, GetModuleHandleA(0), 0);
 
     global_handle = hwnd;
 
