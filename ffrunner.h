@@ -3,10 +3,9 @@
 #define REQUEST_BUFFER_SIZE 0x8000
 #define MAX_CONCURRENT_REQUESTS 64
 #define MAX_URL_LENGTH 256
-#define SRC_URL "http://cdn.dexlabs.systems/ff/big/beta-20100104/main.unity3d"
-#define REVISIONS_PLIST "http://webplayer.unity3d.com/autodownload_webplugin_beta/revisions.plist"
 #define WIDTH 1280
 #define HEIGHT 720
+#define SRC_URL "http://cdn.dexlabs.systems/ff/big/beta-20100104/main.unity3d"
 
 #define ARRLEN(x) (sizeof(x)/sizeof(*x))
 #define MIN(a, b) (a > b ? b : a)
@@ -17,7 +16,7 @@ extern NPNetscapeFuncs netscapeFuncs;
 extern NPWindow npWin;
 
 void handle_requests(void);
-void register_request(const char *url, void *notifyData, bool doNotify);
+void register_request(const char *url, bool doNotify, void *notifyData);
 
 HWND prepare_window(void);
 void message_loop(void);

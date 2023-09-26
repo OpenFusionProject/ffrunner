@@ -18,14 +18,13 @@
 typedef struct Request Request;
 struct Request {
     void *notifyData;
-    char *mimeType;
     bool doNotify;
     char url[MAX_URL_LENGTH];
-    uint8_t data[REQUEST_BUFFER_SIZE]; // TODO: move to stack
 };
 
-Request requests[MAX_CONCURRENT_REQUESTS];
 int nrequests;
+Request requests[MAX_CONCURRENT_REQUESTS];
+uint8_t request_data[REQUEST_BUFFER_SIZE];
 
 char *rewrite_mappings[][2] = {
     SRC_URL,            "assets/main.unity3d",
@@ -49,7 +48,7 @@ rewrite_url(char *input)
 }
 
 void
-file_handler(Request *req, NPReason *res)
+file_handler(Request *req, char *mimeType, NPReason *res)
 {
     FILE *f;
     int ret;
@@ -83,7 +82,7 @@ file_handler(Request *req, NPReason *res)
     rewind(f);
 
     printf("> NPP_NewStream %s\n", req->url);
-    npErr = pluginFuncs.newstream(&npp, (char*)req->mimeType, &npstream, 0, &streamtype); // TODO: set seekable?
+    npErr = pluginFuncs.newstream(&npp, mimeType, &npstream, 0, &streamtype);
     printf("returned %d\n", npErr);
     if (npErr != NPERR_NO_ERROR) {
         goto failWithOpenFile;
@@ -96,7 +95,7 @@ file_handler(Request *req, NPReason *res)
         /* Pick the smallest buffer size out of hardcoded, plugin-desired and bytes left in file. */
         wantbufsize = MIN(MIN(wantbufsize, npstream.end - offset), REQUEST_BUFFER_SIZE);
 
-        bytesRead = fread(req->data, 1, wantbufsize, f);
+        bytesRead = fread(request_data, 1, wantbufsize, f);
         if (bytesRead < wantbufsize) {
             if (ferror(f)) {
                 perror("fread");
@@ -110,7 +109,7 @@ file_handler(Request *req, NPReason *res)
         if (bytesRead == 0)
             break;
 
-        bytesWritten = pluginFuncs.write(&npp, &npstream, offset, bytesRead, req->data);
+        bytesWritten = pluginFuncs.write(&npp, &npstream, offset, bytesRead, request_data);
 
         if (bytesWritten < 0 || bytesWritten < bytesRead) {
             goto failInStream;
@@ -138,7 +137,7 @@ failEarly:
 }
 
 void
-fail_handler(Request *req, NPReason *res)
+fail_handler(Request *req, char *mimeType, NPReason *res)
 {
     *res = NPRES_NETWORK_ERR;
 }
@@ -146,7 +145,7 @@ fail_handler(Request *req, NPReason *res)
 struct {
     char *pattern;
     char *mimeType;
-    void (*handler)(Request*, NPReason*);
+    void (*handler)(Request*, char*, NPReason*);
 } request_handlers[] = {
     "revisions.plist", "UNUSED",                   fail_handler,
     ".png",            "image/png",                file_handler,
@@ -159,21 +158,27 @@ void
 handle_requests(void)
 {
     int i, j;
+    bool hit;
+    char *mimeType;
     NPReason res;
 
     for (i = 0; i < nrequests; i++) {
         Request *req = &requests[i];
 
-        res = NPRES_DONE;
+        /* defaults */
+        res = NPRES_NETWORK_ERR;
+        mimeType = "application/octet-stream";
+        hit = false;
 
         for (j = 0; j < ARRLEN(request_handlers); j++) {
             if (strstr(req->url, request_handlers[j].pattern) != NULL) {
-                req->mimeType = request_handlers[j].mimeType;
-                request_handlers[j].handler(req, &res);
+                hit = true;
+                request_handlers[j].handler(req, mimeType, &res);
                 break;
             }
         }
-        // TODO: else default handler
+        if (!hit)
+            file_handler(req, mimeType, &res);
 
         if (req->doNotify) {
             printf("> NPP_URLNotify %d %s\n", res, req->url);
@@ -187,17 +192,15 @@ handle_requests(void)
 }
 
 void
-register_request(const char *url, void *notifyData, bool doNotify)
+register_request(const char *url, bool doNotify, void *notifyData)
 {
-    assert(nrequests - 1 < MAX_CONCURRENT_REQUESTS);
+    assert(nrequests < MAX_CONCURRENT_REQUESTS);
+    assert(strlen(url) < MAX_URL_LENGTH);
 
     requests[nrequests] = (Request){
-        notifyData,
-        "application/octet-stream",
-        doNotify
+        .notifyData = notifyData,
+        .doNotify = doNotify
     };
-
     strncpy(requests[nrequests].url, url, MAX_URL_LENGTH);
-
     nrequests++;
 }

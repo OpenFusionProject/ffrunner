@@ -23,7 +23,7 @@ NPObject browserObject;
 NPClass browserClass;
 NPWindow npWin;
 
-#define NPIDENTIFIERCOUNT 16
+#define NPIDENTIFIERCOUNT 32
 #define NPSTRINGMAXSIZE 128
 
 char npidentifiers[NPIDENTIFIERCOUNT][NPSTRINGMAXSIZE];
@@ -43,8 +43,12 @@ getNPIdentifier(const char *s)
         if (npidentifiers[i][0] == '\0')
             break;
     }
-    /* make sure there's still room */
-    assert(i < NPIDENTIFIERCOUNT-1);
+    /*
+     * Make sure there's still room.
+     * i would have already been incremented to NPIDENTIFIERCOUNT if
+     * the loop went through all iterations.
+     */
+    assert(i < NPIDENTIFIERCOUNT);
 
     assert(npidentifiers[i][0] == '\0');
     strncpy(npidentifiers[i], s, NPSTRINGMAXSIZE);
@@ -56,8 +60,7 @@ NPN_GetURLProc(NPP instance, const char* url, const char* window)
 {
     printf("< NPN_GetURLProcPtr:%p, url: %s, window: %s\n", instance, url, window);
 
-    // TODO: uncomment this after switching from std::map to a C array. can't use notifyData for the key.
-    //register_request(url, notifyData, false);
+    register_request(url, false, NULL);
 
     return NPERR_NO_ERROR;
 }
@@ -67,7 +70,29 @@ NPN_GetURLNotifyProc(NPP instance, const char* url, const char* window, void* no
 {
     printf("< NPN_GetURLNotifyProc:%p, url: %s, window: %s, notifyData: %p\n", instance, url, window, notifyData);
 
-    register_request(url, notifyData, true);
+    register_request(url, true, notifyData);
+
+    return NPERR_NO_ERROR;
+}
+
+NPError
+NPN_PostURLProc(NPP instance, const char* url, const char* window, uint32_t len, const char* buf, NPBool file)
+{
+    printf("< NPN_GetURLProcPtr:%p, url: %s, window: %s\n", instance, url, window);
+
+    // TODO: implement POST
+    //register_request(url, false, NULL);
+
+    return NPERR_NO_ERROR;
+}
+
+NPError
+NPN_PostURLNotifyProc(NPP instance, const char* url, const char* window, uint32_t len, const char* buf, NPBool file, void* notifyData)
+{
+    printf("< NPN_GetURLNotifyProc:%p, url: %s, window: %s, notifyData: %p\n", instance, url, window, notifyData);
+
+    // TODO: implement POST
+    //register_request(url, true, notifyData);
 
     return NPERR_NO_ERROR;
 }
@@ -172,7 +197,7 @@ NPN_EvaluateProc(NPP npp, NPObject *obj, NPString *script, NPVariant *result)
     printf("< NPN_EvaluateProc %s\n", script->UTF8Characters);
 
     /* Evaluates JS calls, like MarkProgress(1), most of which doesn't need to do anything. */
-    if (strcmp(script->UTF8Characters, EXIT_CALLBACK_SCRIPT) == 0) {
+    if (strncmp(script->UTF8Characters, EXIT_CALLBACK_SCRIPT, sizeof(EXIT_CALLBACK_SCRIPT)) == 0) {
         /* Gracefully exit game. */
         PostQuitMessage(0);
     }
@@ -338,78 +363,15 @@ initBrowserObject(void)
 }
 
 void
-unhandled(void)
-{
-    printf("< UNHANDLED!!!\n");
-}
-
-void
 initNetscapeFuncs(void)
 {
-#if 0
-    // none of these seem to be getting hit. -fpermissive allows compile.
-    netscapeFuncs.geturl = unhandled;
-    netscapeFuncs.posturl = unhandled;
-    netscapeFuncs.requestread = unhandled;
-    netscapeFuncs.newstream = unhandled;
-    netscapeFuncs.write = unhandled;
-    netscapeFuncs.destroystream = unhandled;
-    netscapeFuncs.status = unhandled;
-    netscapeFuncs.uagent = unhandled;
-    netscapeFuncs.memalloc = unhandled;
-    netscapeFuncs.memfree = unhandled;
-    netscapeFuncs.memflush = unhandled;
-    netscapeFuncs.reloadplugins = unhandled;
-    netscapeFuncs.getJavaEnv = unhandled;
-    netscapeFuncs.getJavaPeer = unhandled;
-    netscapeFuncs.geturlnotify = unhandled;
-    netscapeFuncs.posturlnotify = unhandled;
-    netscapeFuncs.getvalue = unhandled;
-    netscapeFuncs.setvalue = unhandled;
-    netscapeFuncs.invalidaterect = unhandled;
-    netscapeFuncs.invalidateregion = unhandled;
-    netscapeFuncs.forceredraw = unhandled;
-    netscapeFuncs.getstringidentifier = unhandled;
-    netscapeFuncs.getstringidentifiers = unhandled;
-    netscapeFuncs.getintidentifier = unhandled;
-    netscapeFuncs.identifierisstring = unhandled;
-    netscapeFuncs.utf8fromidentifier = unhandled;
-    netscapeFuncs.intfromidentifier = unhandled;
-    netscapeFuncs.createobject = unhandled;
-    netscapeFuncs.retainobject = unhandled;
-    netscapeFuncs.releaseobject = unhandled;
-    netscapeFuncs.invoke = unhandled;
-    netscapeFuncs.invokeDefault = unhandled;
-    netscapeFuncs.evaluate = unhandled;
-    netscapeFuncs.getproperty = unhandled;
-    netscapeFuncs.setproperty = unhandled;
-    netscapeFuncs.removeproperty = unhandled;
-    netscapeFuncs.hasproperty = unhandled;
-    netscapeFuncs.hasmethod = unhandled;
-    netscapeFuncs.releasevariantvalue = unhandled;
-    netscapeFuncs.setexception = unhandled;
-    netscapeFuncs.pushpopupsenabledstate = unhandled;
-    netscapeFuncs.poppopupsenabledstate = unhandled;
-    netscapeFuncs.enumerate = unhandled;
-    netscapeFuncs.pluginthreadasynccall = unhandled;
-    netscapeFuncs.construct = unhandled;
-    netscapeFuncs.getvalueforurl = unhandled;
-    netscapeFuncs.setvalueforurl = unhandled;
-    netscapeFuncs.getauthenticationinfo = unhandled;
-    netscapeFuncs.scheduletimer = unhandled;
-    netscapeFuncs.unscheduletimer = unhandled;
-    netscapeFuncs.popupcontextmenu = unhandled;
-    netscapeFuncs.convertpoint = unhandled;
-    netscapeFuncs.handleevent = unhandled;
-    netscapeFuncs.unfocusinstance = unhandled;
-    netscapeFuncs.urlredirectresponse = unhandled;
-#endif
-
     netscapeFuncs.size = 224;
     netscapeFuncs.version = 27;
     netscapeFuncs.geturl = NPN_GetURLProc;
+    netscapeFuncs.posturl = NPN_PostURLProc;
     netscapeFuncs.uagent = NPN_UserAgentProc;
     netscapeFuncs.geturlnotify = NPN_GetURLNotifyProc;
+    netscapeFuncs.posturlnotify = NPN_PostURLNotifyProc;
     netscapeFuncs.releaseobject = NPN_ReleaseObjectProc;
     netscapeFuncs.invoke = NPN_InvokeProc;
     netscapeFuncs.getproperty = NPN_GetPropertyProc;
@@ -420,7 +382,6 @@ initNetscapeFuncs(void)
     netscapeFuncs.evaluate = NPN_EvaluateProc;
     netscapeFuncs.getstringidentifier = NPN_GetStringIdentifierProc;
     netscapeFuncs.getstringidentifiers = NPN_GetStringIdentifiersProc;
-
 }
 
 int
@@ -441,11 +402,20 @@ main(void)
 
     printf("LoadLibraryA\n");
     loader = LoadLibraryA("npUnity3D32.dll");
+    if (!loader) {
+        printf("Failed to load plugin DLL.\n");
+        exit(1);
+    }
 
     printf("GetProcAddress\n");
     NP_GetEntryPointsFunc NP_GetEntryPoints = (NP_GetEntryPointsFunc)GetProcAddress(loader, "NP_GetEntryPoints");
     NP_InitializeFunc NP_Initialize = (NP_InitializeFunc)GetProcAddress(loader, "NP_Initialize");
     NP_ShutdownFunc NP_Shutdown = (NP_ShutdownFunc)GetProcAddress(loader, "NP_Shutdown");
+
+    if (!NP_GetEntryPoints || !NP_Initialize || !NP_Shutdown) {
+        printf("Failed to find one or more plugin symbols. Invalid plugin DLL?\n");
+        exit(1);
+    }
 
     printf("> NP_GetEntryPoints\n");
     ret = NP_GetEntryPoints(&pluginFuncs);
@@ -456,10 +426,7 @@ main(void)
     printf("returned %d\n", ret);
 
     char *argn[] = {
-        "id",
         "src",
-        "type",
-        "pluginspage",
         "width",
         "height",
         "bordercolor",
@@ -469,13 +436,9 @@ main(void)
         "logoimage",
         "progressbarimage",
         "progressframeimage",
-        //"style",
     };
     char *argv[] = {
-        "unityEmbed",
         SRC_URL,
-        "application/vnd.ffuwp",
-        "http://www.unity3d.com/unity-web-player-2.x",
         "1280",
         "680",
         "000000",
@@ -485,7 +448,6 @@ main(void)
         "assets/img/unity-dexlabs.png",
         "assets/img/unity-loadingbar.png",
         "assets/img/unity-loadingframe.png",
-        //"width: 1272px;"
     };
     assert(ARRLEN(argn) == ARRLEN(argv));
 
@@ -521,7 +483,8 @@ main(void)
 
     handle_requests();
 
-    register_request(SRC_URL, NULL, true);
+    /* load the actual content */
+    register_request(SRC_URL, true, NULL);
 
     message_loop();
 

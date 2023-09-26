@@ -15,8 +15,6 @@
 
 #include "ffrunner.h"
 
-HWND global_handle;
-
 LRESULT CALLBACK
 window_proc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 {
@@ -63,8 +61,6 @@ prepare_window(void)
     RegisterClass(&wc);
 
     hwnd = CreateWindowExA(0, CLASS_NAME, "FusionFall", WS_OVERLAPPEDWINDOW, CW_USEDEFAULT, CW_USEDEFAULT, WIDTH, HEIGHT, 0, 0, GetModuleHandleA(0), 0);
-
-    global_handle = hwnd;
 
     ShowWindow(hwnd, SW_SHOWDEFAULT);
     UpdateWindow(hwnd);
