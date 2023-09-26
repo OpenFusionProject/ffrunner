@@ -1,4 +1,3 @@
-#include <cstdint>
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdint.h>
@@ -6,11 +5,6 @@
 #include <string.h>
 #include <unistd.h>
 #include <assert.h>
-
-#include <map>
-#include <string>
-#include <iterator>
-#include <fstream>
 
 #include <windows.h>
 
@@ -21,25 +15,37 @@
 
 #include "ffrunner.h"
 
-std::map<void*, Request*> requests;
+typedef struct Request Request;
+struct Request {
+    void *notifyData;
+    char *mimeType;
+    bool doNotify;
+    char url[MAX_URL_LENGTH];
+    uint8_t data[REQUEST_BUFFER_SIZE]; // TODO: move to stack
+};
 
-std::string
-rewrite_url(std::string input)
+Request requests[MAX_CONCURRENT_REQUESTS];
+int nrequests;
+
+char *rewrite_mappings[][2] = { // TODO: align
+    "http://cdn.dexlabs.systems/ff/big/beta-20100104/main.unity3d", "assets/main.unity3d",
+    "rankurl.txt", "assets/rankurl.txt",
+    "assetInfo.php", "assets/assetInfo.php",
+    "loginInfo.php", "assets/loginInfo.php",
+    "images.php", "assets/images.php",
+    "sponsor.php", "assets/sponsor.php",
+};
+
+char *
+rewrite_url(char *input)
 {
-    if (input == "http://cdn.dexlabs.systems/ff/big/beta-20100104/main.unity3d")
-        return "assets/main.unity3d";
-    else if (input == "rankurl.txt")
-        return "assets/rankurl.txt";
-    else if (input == "assetInfo.php")
-        return "assets/assetInfo.php";
-    else if (input == "loginInfo.php")
-        return "assets/loginInfo.php";
-    else if (input == "images.php")
-        return "assets/images.php";
-    else if (input == "sponsor.php")
-        return "assets/sponsor.php";
-    else
-        return input;
+    int i;
+
+    for (i = 0; i < ARRLEN(rewrite_mappings); i++)
+        if (strcmp(input, rewrite_mappings[i][0]) == 0)
+            return rewrite_mappings[i][1];
+
+    return input;
 }
 
 void
@@ -53,15 +59,15 @@ file_handler(Request *req, NPReason *res)
     NPError npErr;
 
     NPStream npstream = {
-        .url = req->url.c_str(),
+        .url = req->url,
         .notifyData = req->notifyData,
     };
 
-    std::string path = rewrite_url(req->url);
+    char *path = rewrite_url(req->url);
 
-    f = fopen(path.c_str(), "rb");
+    f = fopen(path, "rb");
     if (!f) {
-        perror(path.c_str());
+        perror(path);
         goto failEarly;
     }
 
@@ -76,8 +82,8 @@ file_handler(Request *req, NPReason *res)
     // seek back to start
     rewind(f);
 
-    printf("> NPP_NewStream %s\n", req->url.c_str());
-    npErr = pluginFuncs.newstream(&npp, (char*)req->mimeType.c_str(), &npstream, 0, &streamtype); // TODO: set seekable?
+    printf("> NPP_NewStream %s\n", req->url);
+    npErr = pluginFuncs.newstream(&npp, (char*)req->mimeType, &npstream, 0, &streamtype); // TODO: set seekable?
     printf("returned %d\n", npErr);
     if (npErr != NPERR_NO_ERROR) {
         goto failWithOpenFile;
@@ -119,7 +125,7 @@ file_handler(Request *req, NPReason *res)
 
     printf("* done processing file of size %d\n", offset);
 
-    printf("NPP_DestroyStream %s\n", path.c_str());
+    printf("NPP_DestroyStream %s\n", path);
     pluginFuncs.destroystream(&npp, &npstream, NPRES_DONE);
 
     fclose(f);
@@ -127,7 +133,7 @@ file_handler(Request *req, NPReason *res)
     return;
 
 failInStream:
-    printf("NPP_DestroyStream FAIL %s\n", path.c_str());
+    printf("NPP_DestroyStream FAIL %s\n", path);
     pluginFuncs.destroystream(&npp, &npstream, NPRES_NETWORK_ERR);
 
 failWithOpenFile:
@@ -137,7 +143,6 @@ failEarly:
     *res = NPRES_NETWORK_ERR;
 }
 
-
 void
 fail_handler(Request *req, NPReason *res)
 {
@@ -145,8 +150,8 @@ fail_handler(Request *req, NPReason *res)
 }
 
 struct {
-    std::string pattern;
-    std::string mimeType;
+    char *pattern;
+    char *mimeType;
     void (*handler)(Request*, NPReason*);
 } request_handlers[] = {
     "revisions.plist", "UNUSED",                   fail_handler,
@@ -159,34 +164,46 @@ struct {
 void
 handle_requests(void)
 {
-    int i;
+    int i, j;
     NPReason res;
 
-    for (auto iter = requests.begin(); iter != requests.end(); iter++) {
-        auto req = iter->second;
+    for (i = 0; i < nrequests; i++) {
+        Request *req = &requests[i];
 
         res = NPRES_DONE;
 
-        for (i = 0; i < ARRLEN(request_handlers); i++) {
-            if (req->url.find(request_handlers[i].pattern) != std::string::npos) {
-                req->mimeType = request_handlers[i].mimeType;
-                request_handlers[i].handler(req, &res);
+        for (j = 0; j < ARRLEN(request_handlers); j++) {
+            if (strstr(req->url, request_handlers[j].pattern) != NULL) {
+                req->mimeType = request_handlers[j].mimeType;
+                request_handlers[j].handler(req, &res);
                 break;
             }
         }
         // TODO: else default handler
 
         if (req->doNotify) {
-            printf("> NPP_URLNotify %d %s\n", res, req->url.c_str());
-            pluginFuncs.urlnotify(&npp, req->url.c_str(), res, req->notifyData);
+            printf("> NPP_URLNotify %d %s\n", res, req->url);
+            pluginFuncs.urlnotify(&npp, req->url, res, req->notifyData);
         }
     }
 
-    requests.clear();
+    // clear all requests
+    memset(&requests, 0, sizeof(requests));
+    nrequests = 0;
 }
 
 void
 register_request(const char *url, void *notifyData, bool doNotify)
 {
-    requests[notifyData] = new Request(std::string(url), notifyData, doNotify);
+    assert(nrequests - 1 < MAX_CONCURRENT_REQUESTS);
+
+    requests[nrequests] = (Request){
+        notifyData,
+        "application/octet-stream",
+        doNotify
+    };
+
+    strncpy(requests[nrequests].url, url, MAX_URL_LENGTH);
+
+    nrequests++;
 }

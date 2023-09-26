@@ -6,8 +6,6 @@
 #include <unistd.h>
 #include <assert.h>
 
-#include <string>
-
 #include <windows.h>
 
 #include "npapi/npapi.h"
@@ -178,7 +176,7 @@ NPN_EvaluateProc(NPP npp, NPObject *obj, NPString *script, NPVariant *result)
         PostQuitMessage(0);
     }
 
-    *result = {
+    *result = (NPVariant){
         .type = NPVariantType_Void
     };
 
@@ -248,7 +246,7 @@ NPInvalidateFunction(NPObject *npobj)
 bool
 NPHasMethodFunction(NPObject *npobj, NPIdentifier name)
 {
-    printf("< NPHasMethodFunction %p %s\n", npobj, name);
+    printf("< NPHasMethodFunction %p %p\n", npobj, name);
 
     return 0;
 }
@@ -256,7 +254,7 @@ NPHasMethodFunction(NPObject *npobj, NPIdentifier name)
 bool
 NPInvokeFunction(NPObject *npobj, NPIdentifier name, const NPVariant *args, uint32_t argCount, NPVariant *result)
 {
-    printf("< NPInvokeFunction %p %s\n", npobj, name);
+    printf("< NPInvokeFunction %p %p\n", npobj, name);
 
     return 0;
 }
@@ -491,7 +489,7 @@ main(void)
     HWND hwnd = prepare_window();
     assert(hwnd);
 
-    npWin = {
+    npWin = (NPWindow){
         .window = hwnd,
         .x = 0, .y = 0,
         .width = WIDTH, .height = HEIGHT,
