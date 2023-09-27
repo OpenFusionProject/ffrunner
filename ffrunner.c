@@ -397,6 +397,8 @@ main(void)
     printf("setenv(\"%s\")\n", cwd);
     SetEnvironmentVariable("UNITY_HOME_DIR", cwd);
 
+    SetEnvironmentVariable("UNITY_DISABLE_PLUGIN_UPDATES", "yes");
+
     initNetscapeFuncs();
     initBrowserObject();
 
