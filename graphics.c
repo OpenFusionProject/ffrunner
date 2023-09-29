@@ -69,6 +69,18 @@ prepare_window(void)
 }
 
 void
+handle_single_message(void)
+{
+    MSG msg = {0};
+
+    if (GetMessage(&msg, NULL, 0, 0) <= 0)
+        return;
+
+    TranslateMessage(&msg);
+    DispatchMessage(&msg);
+}
+
+void
 message_loop(void)
 {
     MSG msg = {0};

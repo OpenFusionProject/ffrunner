@@ -20,4 +20,5 @@ void register_request(const char *url, bool doNotify, void *notifyData);
 void init_network(void);
 
 HWND prepare_window(void);
+void handle_single_message(void);
 void message_loop(void);

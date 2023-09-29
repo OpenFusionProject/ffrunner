@@ -196,6 +196,9 @@ http_handler(Request *req, char *mimeType, NPReason *res)
         if (bytesWritten < 0 || bytesWritten < bytesRead) {
             goto failInStream;
         }
+
+        /* draw the progress bar */
+        handle_single_message();
     }
 
     printf("* done processing file of size %d\n", offset);
