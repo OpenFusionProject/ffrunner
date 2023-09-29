@@ -7,6 +7,8 @@
 #include <assert.h>
 
 #include <windows.h>
+#include <wininet.h>
+//#pragma comment(lib, "Wininet.lib")
 
 #include "npapi/npapi.h"
 #include "npapi/npfunctions.h"
@@ -25,6 +27,8 @@ struct Request {
 int nrequests;
 Request requests[MAX_CONCURRENT_REQUESTS];
 uint8_t request_data[REQUEST_BUFFER_SIZE];
+
+HINTERNET hinternet;
 
 char *rewrite_mappings[][2] = {
     SRC_URL,            "assets/main.unity3d",
@@ -122,6 +126,7 @@ file_handler(Request *req, char *mimeType, NPReason *res)
     pluginFuncs.destroystream(&npp, &npstream, NPRES_DONE);
 
     fclose(f);
+    *res = NPRES_DONE;
 
     return;
 
@@ -131,6 +136,84 @@ failInStream:
 
 failWithOpenFile:
     fclose(f);
+
+failEarly:
+    *res = NPRES_NETWORK_ERR;
+}
+
+void
+http_handler(Request *req, char *mimeType, NPReason *res)
+{
+    int ret;
+    uint64_t wantbufsize;
+    long unsigned int lenlen, bytesRead;
+    size_t bytesWritten, offset;
+    uint16_t streamtype;
+    NPError npErr;
+    HINTERNET urlHandle;
+
+    NPStream npstream = {
+        .url = req->url,
+        .notifyData = req->notifyData,
+    };
+
+    urlHandle = InternetOpenUrlA(hinternet, req->url, NULL, 0, 0, 0);
+    if (!urlHandle) {
+        goto failEarly;
+    }
+
+    /* get file size */
+    lenlen = sizeof(npstream.end);
+    if (!HttpQueryInfoA(urlHandle, HTTP_QUERY_FLAG_NUMBER|HTTP_QUERY_CONTENT_LENGTH, &npstream.end, &lenlen, 0)) {
+        goto failWithInternetHandle;
+    }
+    assert(lenlen == sizeof(npstream.end));
+
+    printf("> NPP_NewStream %s\n", req->url);
+    npErr = pluginFuncs.newstream(&npp, mimeType, &npstream, 0, &streamtype);
+    printf("returned %d\n", npErr);
+    if (npErr != NPERR_NO_ERROR) {
+        goto failWithInternetHandle;
+    }
+    assert(streamtype == NP_NORMAL);
+
+    for (offset = 0; offset < npstream.end; offset += bytesRead) {
+        wantbufsize = pluginFuncs.writeready(&npp, &npstream);
+
+        /* Pick the smallest buffer size out of hardcoded, plugin-desired and bytes left in file. */
+        wantbufsize = MIN(MIN(wantbufsize, npstream.end - offset), REQUEST_BUFFER_SIZE);
+
+        if (!InternetReadFile(urlHandle, request_data, wantbufsize, &bytesRead)) {
+            goto failInStream;
+        }
+
+        /* Do not write empty buffers. */
+        if (bytesRead == 0)
+            break;
+
+        bytesWritten = pluginFuncs.write(&npp, &npstream, offset, bytesRead, request_data);
+
+        if (bytesWritten < 0 || bytesWritten < bytesRead) {
+            goto failInStream;
+        }
+    }
+
+    printf("* done processing file of size %d\n", offset);
+
+    printf("NPP_DestroyStream %s\n", req->url);
+    pluginFuncs.destroystream(&npp, &npstream, NPRES_DONE);
+
+    InternetCloseHandle(urlHandle);
+    *res = NPRES_DONE;
+
+    return;
+
+failInStream:
+    printf("NPP_DestroyStream FAIL %s\n", req->url);
+    pluginFuncs.destroystream(&npp, &npstream, NPRES_NETWORK_ERR);
+
+failWithInternetHandle:
+    InternetCloseHandle(urlHandle);
 
 failEarly:
     *res = NPRES_NETWORK_ERR;
@@ -149,7 +232,7 @@ struct {
 } request_handlers[] = {
     "revisions.plist", "UNUSED",                   fail_handler,
     ".png",            "image/png",                file_handler,
-    "main.unity3d",    "application/octet-stream", file_handler,
+    "main.unity3d",    "application/octet-stream", http_handler,
     ".php",            "text/plain",               file_handler,
     ".txt",            "text/plain",               file_handler,
 };
@@ -178,7 +261,7 @@ handle_requests(void)
             }
         }
         if (!hit)
-            file_handler(req, mimeType, &res);
+            http_handler(req, mimeType, &res);
 
         if (req->doNotify) {
             printf("> NPP_URLNotify %d %s\n", res, req->url);
@@ -203,4 +286,11 @@ register_request(const char *url, bool doNotify, void *notifyData)
     };
     strncpy(requests[nrequests].url, url, MAX_URL_LENGTH);
     nrequests++;
+}
+
+void
+init_network()
+{
+    hinternet = InternetOpenA(USERAGENT, INTERNET_OPEN_TYPE_DIRECT, NULL, NULL, 0);
+    assert(hinternet);
 }

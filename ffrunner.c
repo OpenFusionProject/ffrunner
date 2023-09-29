@@ -397,7 +397,6 @@ main(void)
     cwd = getcwd(NULL, 0);
     printf("setenv(\"%s\")\n", cwd);
     SetEnvironmentVariable("UNITY_HOME_DIR", cwd);
-
     SetEnvironmentVariable("UNITY_DISABLE_PLUGIN_UPDATES", "yes");
 
     initNetscapeFuncs();
@@ -419,6 +418,8 @@ main(void)
         printf("Failed to find one or more plugin symbols. Invalid plugin DLL?\n");
         exit(1);
     }
+
+    init_network();
 
     printf("> NP_GetEntryPoints\n");
     ret = NP_GetEntryPoints(&pluginFuncs);

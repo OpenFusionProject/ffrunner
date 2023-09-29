@@ -17,6 +17,7 @@ extern NPWindow npWin;
 
 void handle_requests(void);
 void register_request(const char *url, bool doNotify, void *notifyData);
+void init_network(void);
 
 HWND prepare_window(void);
 void message_loop(void);
