@@ -392,6 +392,7 @@ main(void)
     NPObject *scriptableObject;
     HMODULE loader;
     HWND hwnd;
+    RECT winRect;
 
     cwd = getcwd(NULL, 0);
     printf("setenv(\"%s\")\n", cwd);
@@ -470,9 +471,21 @@ main(void)
         .type = NPWindowTypeWindow
     };
 
+    /* adjust plugin rect to the real inner size of the window */
+    if (GetClientRect(hwnd, &winRect)) {
+        npWin.clipRect.top = winRect.top;
+        npWin.clipRect.bottom = winRect.bottom;
+        npWin.clipRect.left = winRect.left;
+        npWin.clipRect.right = winRect.right;
+
+        npWin.height = winRect.bottom - winRect.top;
+        npWin.width = winRect.right - winRect.left;
+    }
+
     printf("> NPP_SetWindowProc\n");
     ret = pluginFuncs.setwindow(&npp, &npWin);
     printf("returned %d\n", ret);
+
 
     printf("> NPP_GetValueProc\n");
     ret = pluginFuncs.getvalue(&npp, NPPVpluginScriptableNPObject, &scriptableObject);
