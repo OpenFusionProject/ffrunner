@@ -230,11 +230,15 @@ struct {
     char *mimeType;
     void (*handler)(Request*, char*, NPReason*);
 } request_handlers[] = {
-    "revisions.plist", "UNUSED",                   fail_handler,
-    ".png",            "image/png",                file_handler,
-    "main.unity3d",    "application/octet-stream", http_handler,
-    ".php",            "text/plain",               file_handler,
-    ".txt",            "text/plain",               file_handler,
+    "revisions.plist",         "UNUSED",                   fail_handler,
+    "turner.com",              "UNUSED",                   fail_handler,
+    "unity-dexlabs.png",       "image/png",                file_handler,
+    "unity-loadingbar.png",    "image/png",                file_handler,
+    "unity-loadingframe.png",  "image/png",                file_handler,
+    "main.unity3d",            "application/octet-stream", http_handler,
+    ".php",                    "text/plain",               file_handler,
+    ".txt",                    "text/plain",               file_handler,
+    ".png",                    "image/png",                http_handler,
 };
 
 void
@@ -256,7 +260,7 @@ handle_requests(void)
         for (j = 0; j < ARRLEN(request_handlers); j++) {
             if (strstr(req->url, request_handlers[j].pattern) != NULL) {
                 hit = true;
-                request_handlers[j].handler(req, mimeType, &res);
+                request_handlers[j].handler(req, request_handlers[j].mimeType, &res);
                 break;
             }
         }
