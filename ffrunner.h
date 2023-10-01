@@ -15,9 +15,12 @@ extern NPPluginFuncs pluginFuncs;
 extern NPNetscapeFuncs netscapeFuncs;
 extern NPWindow npWin;
 
+extern bool windowChanged;
+extern CRITICAL_SECTION graphicsCrit;
+
 void handle_requests(void);
 void register_request(const char *url, bool doNotify, void *notifyData);
 void init_network(void);
 
-HWND prepare_window(void);
 void message_loop(void);
+DWORD WINAPI graphics_thread(void *);

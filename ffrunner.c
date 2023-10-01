@@ -341,6 +341,28 @@ NPConstructFunction(NPObject *npobj, const NPVariant *args, uint32_t argCount, N
     return 0;
 }
 
+bool
+reloadWindow(void)
+{
+    NPError ret;
+
+    EnterCriticalSection(&graphicsCrit);
+
+    if (!windowChanged) {
+        LeaveCriticalSection(&graphicsCrit);
+        return false;
+    }
+
+    printf("> NPP_SetWindowProc\n");
+    ret = pluginFuncs.setwindow(&npp, &npWin);
+    printf("returned %d\n", ret);
+
+    windowChanged = false;
+
+    LeaveCriticalSection(&graphicsCrit);
+    return true;
+}
+
 void
 initBrowserObject(void)
 {
@@ -392,7 +414,6 @@ main(void)
     NPObject *scriptableObject;
     HMODULE loader;
     HWND hwnd;
-    RECT winRect;
 
     cwd = getcwd(NULL, 0);
     printf("setenv(\"%s\")\n", cwd);
@@ -401,6 +422,7 @@ main(void)
 
     initNetscapeFuncs();
     initBrowserObject();
+    InitializeCriticalSection(&graphicsCrit);
 
     printf("LoadLibraryA\n");
     loader = LoadLibraryA("npUnity3D32.dll");
@@ -459,50 +481,35 @@ main(void)
     ret = pluginFuncs.newp("application/vnd.ffuwp", &npp, 1, ARRLEN(argn), argn, argv, &saved);
     printf("returned %d\n", ret);
 
-    hwnd = prepare_window();
-    assert(hwnd);
-
-    npWin = (NPWindow){
-        .window = hwnd,
-        .x = 0, .y = 0,
-        .width = WIDTH, .height = HEIGHT,
-        .clipRect = {
-            0, 0, HEIGHT, WIDTH
-        },
-        .type = NPWindowTypeWindow
-    };
-
-    /* adjust plugin rect to the real inner size of the window */
-    if (GetClientRect(hwnd, &winRect)) {
-        npWin.clipRect.top = winRect.top;
-        npWin.clipRect.bottom = winRect.bottom;
-        npWin.clipRect.left = winRect.left;
-        npWin.clipRect.right = winRect.right;
-
-        npWin.height = winRect.bottom - winRect.top;
-        npWin.width = winRect.right - winRect.left;
+    if (!CreateThread(NULL, 4096, graphics_thread, NULL, 0, NULL)) {
+        printf("Failed to create thread\n");
+        exit(1);
     }
 
-    printf("> NPP_SetWindowProc\n");
-    ret = pluginFuncs.setwindow(&npp, &npWin);
-    printf("returned %d\n", ret);
-
+    /* wait until the initial setwindow() has been processed */
+    while (!reloadWindow())
+        ;
 
     printf("> NPP_GetValueProc\n");
     ret = pluginFuncs.getvalue(&npp, NPPVpluginScriptableNPObject, &scriptableObject);
     printf("returned %d and NPObject %p\n", ret, scriptableObject);
     assert(scriptableObject->_class);
-
+#if 0
     printf("> scriptableObject.hasMethod style\n");
     ret = scriptableObject->_class->hasMethod(scriptableObject, getNPIdentifier("style"));
     printf("returned %d\n", ret);
-
+#endif
     handle_requests();
 
     /* load the actual content */
     register_request(SRC_URL, true, NULL);
 
-    message_loop();
+    //message_loop();
+    for (;;) {
+        handle_requests();
+        reloadWindow();
+        sleep(20);
+    }
 
     return 0;
 }

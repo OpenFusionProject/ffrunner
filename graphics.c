@@ -15,6 +15,10 @@
 
 #include "ffrunner.h"
 
+bool windowChanged = false;
+HWND hwnd;
+CRITICAL_SECTION graphicsCrit;
+
 LRESULT CALLBACK
 window_proc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 {
@@ -39,20 +43,23 @@ window_proc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
         width = LOWORD(lParam);
         height = HIWORD(lParam);
 
+        EnterCriticalSection(&graphicsCrit);
         npWin.width = npWin.clipRect.right = width;
         npWin.height = npWin.clipRect.bottom = height;
-        pluginFuncs.setwindow(&npp, &npWin);
+        windowChanged = true;
+        LeaveCriticalSection(&graphicsCrit);
+
         return 0;
     }
 
     return DefWindowProc(hwnd, uMsg, wParam, lParam);
 }
 
-HWND
+void
 prepare_window(void)
 {
     WNDCLASS wc = {0};
-    HWND hwnd;
+    hwnd;
 
     wc.lpfnWndProc   = window_proc;
     wc.hInstance     = GetModuleHandleA(NULL);
@@ -64,8 +71,6 @@ prepare_window(void)
 
     ShowWindow(hwnd, SW_SHOWDEFAULT);
     UpdateWindow(hwnd);
-
-    return hwnd;
 }
 
 void
@@ -77,6 +82,48 @@ message_loop(void)
     {
         TranslateMessage(&msg);
         DispatchMessage(&msg);
-        handle_requests();
+        //handle_requests();
     }
+}
+
+DWORD WINAPI
+graphics_thread(void *unused)
+{
+    RECT winRect;
+
+    EnterCriticalSection(&graphicsCrit);
+
+    prepare_window();
+    assert(hwnd);
+
+    npWin = (NPWindow){
+        .window = hwnd,
+        .x = 0, .y = 0,
+        .width = WIDTH, .height = HEIGHT,
+        .clipRect = {
+            0, 0, HEIGHT, WIDTH
+        },
+        .type = NPWindowTypeWindow
+    };
+
+    /* adjust plugin rect to the real inner size of the window */
+    if (GetClientRect(hwnd, &winRect)) {
+        npWin.clipRect.top = winRect.top;
+        npWin.clipRect.bottom = winRect.bottom;
+        npWin.clipRect.left = winRect.left;
+        npWin.clipRect.right = winRect.right;
+
+        npWin.height = winRect.bottom - winRect.top;
+        npWin.width = winRect.right - winRect.left;
+    }
+
+    windowChanged = true;
+
+    LeaveCriticalSection(&graphicsCrit);
+
+    message_loop();
+
+    /* not reached until quit */
+    return 0;
+
 }
