@@ -60,6 +60,9 @@ prepare_window(void)
     wc.hInstance     = GetModuleHandleA(NULL);
     wc.lpszClassName = CLASS_NAME;
 
+    HICON hIcon = LoadIcon(wc.hInstance, MAKEINTRESOURCE(0));
+    wc.hIcon = hIcon;
+
     RegisterClass(&wc);
 
     hwnd = CreateWindowExA(0, CLASS_NAME, "FusionFall", WS_OVERLAPPEDWINDOW, CW_USEDEFAULT, CW_USEDEFAULT, WIDTH, HEIGHT, 0, 0, GetModuleHandleA(0), 0);

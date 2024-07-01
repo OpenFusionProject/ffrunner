@@ -1,5 +1,7 @@
 *.exe
 *.dll
+*.res
+assets/
 mono/
 player/
 out/
