@@ -21,6 +21,9 @@ struct Request {
     void *notifyData;
     bool doNotify;
     char url[MAX_URL_LENGTH];
+    bool isPost;
+    uint32_t postDataLen;
+    char postData[REQUEST_BUFFER_SIZE];
 };
 
 CRITICAL_SECTION requestsCrit;
@@ -38,6 +41,13 @@ char *rewrite_mappings[][2] = {
     "images.php",       "assets/images.php",
     "sponsor.php",      "assets/sponsor.php",
 };
+
+char *
+get_post_payload(const char *buf)
+{
+    const char *term = "\r\n\r\n";
+    return strstr(buf, term) + sizeof(term);
+}
 
 char *
 rewrite_url(char *input)
@@ -149,46 +159,99 @@ http_handler(Request *req, char *mimeType, NPReason *res)
     uint64_t wantbufsize;
     long unsigned int lenlen, bytesRead;
     size_t bytesWritten, offset;
+    uint32_t lengthHint;
     uint16_t streamtype;
     NPError npErr;
-    HINTERNET urlHandle;
+    HINTERNET connHandle;
+    char hostname[MAX_URL_LENGTH];
+    char filepath[MAX_URL_LENGTH];
+    HINTERNET reqHandle;
 
     NPStream npstream = {
         .url = req->url,
         .notifyData = req->notifyData,
     };
 
-    urlHandle = InternetOpenUrlA(hinternet, req->url, NULL, 0, 0, 0);
-    if (!urlHandle) {
+    URL_COMPONENTSA urlComponents = {
+        .dwStructSize = sizeof(URL_COMPONENTSA),
+        .lpszHostName = hostname,
+        .dwHostNameLength = MAX_URL_LENGTH,
+        .lpszUrlPath = filepath,
+        .dwUrlPathLength = MAX_URL_LENGTH
+    };
+    lenlen = strlen(req->url);
+    if (!InternetCrackUrlA(req->url, lenlen, 0, &urlComponents)) {
         goto failEarly;
     }
 
-    /* get file size */
-    lenlen = sizeof(npstream.end);
-    if (!HttpQueryInfoA(urlHandle, HTTP_QUERY_FLAG_NUMBER|HTTP_QUERY_CONTENT_LENGTH, &npstream.end, &lenlen, 0)) {
-        goto failWithInternetHandle;
+    connHandle = InternetConnectA(hinternet, hostname, urlComponents.nPort, NULL, NULL, INTERNET_SERVICE_HTTP, 0, 0);
+    if (!connHandle) {
+        printf("Failed internetconnect: %d\n", GetLastError());
+        goto failEarly;
     }
-    assert(lenlen == sizeof(npstream.end));
+
+    /* Create and send the request */
+    PCTSTR verb = req->isPost ? "POST" : "GET";
+    PCTSTR acceptedTypes[] = { mimeType, NULL };
+    DWORD flags = 0;
+    if (urlComponents.nScheme == INTERNET_SCHEME_HTTPS) {
+        flags |= INTERNET_FLAG_SECURE;
+    }
+    printf("Verb: %s\nHost: %s\nPort: %d\nObject: %s\n", verb, hostname, urlComponents.nPort, filepath);
+    reqHandle = HttpOpenRequestA(connHandle, verb, filepath, NULL, NULL, acceptedTypes, flags, 0);
+    if (!reqHandle) {
+        printf("Failed httpopen: %d\n", GetLastError());
+        goto failWithConnHandle;
+    }
+
+    LPSTR headers = NULL;
+    DWORD headersSz = 0;
+    LPSTR payload = NULL;
+    DWORD payloadSz = 0;
+    if (req->isPost) {
+        headers = req->postData;
+        payload = get_post_payload(req->postData);
+        headersSz = payload - headers;
+        payloadSz = req->postDataLen - headersSz;
+    }
+    if (!HttpSendRequestA(reqHandle, headers, headersSz, payload, payloadSz)) {
+        printf("Failed httpsend: %d\n", GetLastError());
+        goto failWithReqHandle;
+    }
+
+    /* Attempt to get the length from the Content-Length header. */
+    /* If we don't know the length, the plugin asks for 0. */
+    lengthHint = 0;
+    lenlen = sizeof(lengthHint);
+    if (!HttpQueryInfoA(reqHandle, HTTP_QUERY_FLAG_NUMBER|HTTP_QUERY_CONTENT_LENGTH, &lengthHint, &lenlen, 0)
+        && GetLastError() != ERROR_HTTP_HEADER_NOT_FOUND) {
+        printf("Failed httpquery: %d\n", GetLastError());
+        goto failWithReqHandle;
+    }
+    npstream.end = lengthHint;
 
     printf("> NPP_NewStream %s\n", req->url);
     npErr = pluginFuncs.newstream(&npp, mimeType, &npstream, 0, &streamtype);
     printf("returned %d\n", npErr);
     if (npErr != NPERR_NO_ERROR) {
-        goto failWithInternetHandle;
+        goto failWithReqHandle;
     }
     assert(streamtype == NP_NORMAL);
 
-    for (offset = 0; offset < npstream.end; offset += bytesRead) {
+    for (offset = 0; ; offset += bytesRead) {
         wantbufsize = pluginFuncs.writeready(&npp, &npstream);
 
         /* Pick the smallest buffer size out of hardcoded, plugin-desired and bytes left in file. */
-        wantbufsize = MIN(MIN(wantbufsize, npstream.end - offset), REQUEST_BUFFER_SIZE);
+        wantbufsize = MIN(wantbufsize, REQUEST_BUFFER_SIZE);
+        if (npstream.end > 0) {
+            wantbufsize = MIN(wantbufsize, npstream.end - offset);
+        }
 
-        if (!InternetReadFile(urlHandle, request_data, wantbufsize, &bytesRead)) {
+        if (!InternetReadFile(reqHandle, request_data, wantbufsize, &bytesRead)) {
             goto failInStream;
         }
 
-        /* Do not write empty buffers. */
+        /* EOF */
         if (bytesRead == 0)
             break;
 
@@ -204,7 +267,8 @@ http_handler(Request *req, char *mimeType, NPReason *res)
     printf("NPP_DestroyStream %s\n", req->url);
     pluginFuncs.destroystream(&npp, &npstream, NPRES_DONE);
 
-    InternetCloseHandle(urlHandle);
+    InternetCloseHandle(reqHandle);
+    InternetCloseHandle(connHandle);
     *res = NPRES_DONE;
 
     return;
@@ -213,8 +277,11 @@ failInStream:
     printf("NPP_DestroyStream FAIL %s\n", req->url);
     pluginFuncs.destroystream(&npp, &npstream, NPRES_NETWORK_ERR);
 
-failWithInternetHandle:
-    InternetCloseHandle(urlHandle);
+failWithReqHandle:
+    InternetCloseHandle(reqHandle);
+
+failWithConnHandle:
+    InternetCloseHandle(connHandle);
 
 failEarly:
     *res = NPRES_NETWORK_ERR;
@@ -284,7 +351,7 @@ handle_requests(void)
 }
 
 void
-register_request(const char *url, bool doNotify, void *notifyData)
+register_get_request(const char *url, bool doNotify, void *notifyData)
 {
     EnterCriticalSection(&requestsCrit);
 
@@ -293,12 +360,32 @@ register_request(const char *url, bool doNotify, void *notifyData)
 
     requests[nrequests] = (Request){
         .notifyData = notifyData,
-        .doNotify = doNotify
+        .doNotify = doNotify,
+        .isPost = false,
+        .postDataLen = 0
     };
     strncpy(requests[nrequests].url, url, MAX_URL_LENGTH);
     nrequests++;
 
     LeaveCriticalSection(&requestsCrit);
+}
+
+void
+register_post_request(const char *url, bool doNotify, void *notifyData, uint32_t postDataLen, const char *postData)
+{
+    assert(nrequests < MAX_CONCURRENT_REQUESTS);
+    assert(strlen(url) < MAX_URL_LENGTH);
+
+    requests[nrequests] = (Request){
+        .notifyData = notifyData,
+        .doNotify = doNotify,
+        .isPost = true,
+        .postDataLen = postDataLen
+    };
+    strncpy(requests[nrequests].url, url, MAX_URL_LENGTH);
+    strncpy(requests[nrequests].postData, postData, postDataLen);
+    requests[nrequests].postData[postDataLen] = '\0';
+    nrequests++;
 }
 
 void

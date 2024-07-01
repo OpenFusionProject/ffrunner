@@ -22,7 +22,8 @@ typedef NPError     (OSCALL *NP_ShutdownFuncOS)(void);
 extern CRITICAL_SECTION requestsCrit;
 
 void handle_requests(void);
-void register_request(const char *url, bool doNotify, void *notifyData);
+void register_get_request(const char *url, bool doNotify, void *notifyData);
+void register_post_request(const char *url, bool doNotify, void *notifyData, uint32_t postDataLen, const char *postData);
 void init_network(void);
 
 HWND prepare_window(void);

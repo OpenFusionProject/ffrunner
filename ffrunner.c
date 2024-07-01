@@ -57,9 +57,9 @@ getNPIdentifier(const char *s)
 NPError
 NPN_GetURLProc(NPP instance, const char* url, const char* window)
 {
-    printf("< NPN_GetURLProcPtr:%p, url: %s, window: %s\n", instance, url, window);
+    printf("< NPN_GetURLProc:%p, url: %s, window: %s\n", instance, url, window);
 
-    register_request(url, false, NULL);
+    register_get_request(url, false, NULL);
 
     return NPERR_NO_ERROR;
 }
@@ -69,7 +69,7 @@ NPN_GetURLNotifyProc(NPP instance, const char* url, const char* window, void* no
 {
     printf("< NPN_GetURLNotifyProc:%p, url: %s, window: %s, notifyData: %p\n", instance, url, window, notifyData);
 
-    register_request(url, true, notifyData);
+    register_get_request(url, true, notifyData);
 
     return NPERR_NO_ERROR;
 }
@@ -77,10 +77,10 @@ NPN_GetURLNotifyProc(NPP instance, const char* url, const char* window, void* no
 NPError
 NPN_PostURLProc(NPP instance, const char* url, const char* window, uint32_t len, const char* buf, NPBool file)
 {
-    printf("< NPN_GetURLProcPtr:%p, url: %s, window: %s\n", instance, url, window);
+    printf("< NPN_PostURLProc:%p, url: %s, window: %s, len: %d, buf: %s, file: %d\n",
+            instance, url, window, len, buf, file);
 
-    // TODO: implement POST
-    //register_request(url, false, NULL);
+    register_post_request(url, false, NULL, len, buf);
 
     return NPERR_NO_ERROR;
 }
@@ -88,10 +88,10 @@ NPN_PostURLProc(NPP instance, const char* url, const char* window, uint32_t len,
 NPError
 NPN_PostURLNotifyProc(NPP instance, const char* url, const char* window, uint32_t len, const char* buf, NPBool file, void* notifyData)
 {
-    printf("< NPN_GetURLNotifyProc:%p, url: %s, window: %s, notifyData: %p\n", instance, url, window, notifyData);
+    printf("< NPN_PostURLNotifyProc:%p, url: %s, window: %s, len: %d, buf: %s, file: %d, notifyData: %p\n",
+            instance, url, window, len, buf, file, notifyData);
 
-    // TODO: implement POST
-    //register_request(url, true, notifyData);
+    register_post_request(url, true, notifyData, len, buf);
 
     return NPERR_NO_ERROR;
 }
@@ -502,7 +502,7 @@ main(void)
     handle_requests();
 
     /* load the actual content */
-    register_request(SRC_URL, true, NULL);
+    register_get_request(SRC_URL, true, NULL);
 
     message_loop();
 
