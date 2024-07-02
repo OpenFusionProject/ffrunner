@@ -3,7 +3,6 @@
 #include <stdint.h>
 #include <stdbool.h>
 #include <string.h>
-#include <unistd.h>
 #include <assert.h>
 
 #include <windows.h>
@@ -387,16 +386,17 @@ initNetscapeFuncs(void)
 int
 main(void)
 {
-    char *cwd;
+    char cwd[MAX_PATH];
     NPError ret;
     NPObject *scriptableObject;
     HMODULE loader;
     HWND hwnd;
     RECT winRect;
 
-    cwd = getcwd(NULL, 0);
-    printf("setenv(\"%s\")\n", cwd);
-    SetEnvironmentVariable("UNITY_HOME_DIR", cwd);
+    if (GetCurrentDirectory(MAX_PATH, cwd)) {
+        printf("setenv(\"%s\")\n", cwd);
+        SetEnvironmentVariable("UNITY_HOME_DIR", cwd);
+    }
     SetEnvironmentVariable("UNITY_DISABLE_PLUGIN_UPDATES", "yes");
 
     initNetscapeFuncs();
