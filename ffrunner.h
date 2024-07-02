@@ -15,6 +15,10 @@ extern NPPluginFuncs pluginFuncs;
 extern NPNetscapeFuncs netscapeFuncs;
 extern NPWindow npWin;
 
+typedef NPError     (OSCALL *NP_GetEntryPointsFuncOS)(NPPluginFuncs*);
+typedef NPError     (OSCALL *NP_InitializeFuncOS)(NPNetscapeFuncs*);
+typedef NPError     (OSCALL *NP_ShutdownFuncOS)(void);
+
 void handle_requests(void);
 void register_request(const char *url, bool doNotify, void *notifyData);
 void init_network(void);
