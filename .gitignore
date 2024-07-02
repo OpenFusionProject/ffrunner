@@ -2,4 +2,6 @@
 *.dll
 mono/
 player/
+out/
+build/
 *-swp
