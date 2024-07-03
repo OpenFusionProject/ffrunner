@@ -33,7 +33,7 @@ getNPIdentifier(const char *s)
     int i;
 
     assert(*s != '\0');
-    assert(strlen(s) <= NPSTRINGMAXSIZE);
+    assert(strlen(s) < NPSTRINGMAXSIZE);
 
     for (i = 0; i < NPIDENTIFIERCOUNT; i++) {
         if (strncmp(s, npidentifiers[i], NPSTRINGMAXSIZE) == 0)
@@ -386,6 +386,7 @@ initNetscapeFuncs(void)
 int
 main(void)
 {
+    DWORD err;
     char cwd[MAX_PATH];
     NPError ret;
     NPObject *scriptableObject;
@@ -405,7 +406,8 @@ main(void)
     printf("LoadLibraryA\n");
     loader = LoadLibraryA("npUnity3D32.dll");
     if (!loader) {
-        printf("Failed to load plugin DLL.\n");
+        err = GetLastError();
+        printf("Failed to load plugin DLL: 0x%x\n", err);
         exit(1);
     }
 

@@ -55,7 +55,7 @@ file_handler(Request *req, char *mimeType, NPReason *res)
 {
     FILE *f;
     int ret;
-    int32_t wantbufsize;
+    uint32_t wantbufsize;
     size_t bytesRead, bytesWritten, offset;
     uint16_t streamtype;
     NPError npErr;
@@ -97,6 +97,8 @@ file_handler(Request *req, char *mimeType, NPReason *res)
 
         /* Pick the smallest buffer size out of hardcoded, plugin-desired and bytes left in file. */
         wantbufsize = MIN(MIN(wantbufsize, npstream.end - offset), REQUEST_BUFFER_SIZE);
+
+        assert(wantbufsize <= REQUEST_BUFFER_SIZE);
 
         bytesRead = fread(request_data, 1, wantbufsize, f);
         if (bytesRead < wantbufsize) {
@@ -143,7 +145,6 @@ failEarly:
 void
 http_handler(Request *req, char *mimeType, NPReason *res)
 {
-    int ret;
     uint64_t wantbufsize;
     long unsigned int lenlen, bytesRead;
     size_t bytesWritten, offset;
