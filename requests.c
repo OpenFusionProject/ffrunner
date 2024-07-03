@@ -23,6 +23,7 @@ struct Request {
     char url[MAX_URL_LENGTH];
 };
 
+CRITICAL_SECTION requestsCrit;
 int nrequests;
 Request requests[MAX_CONCURRENT_REQUESTS];
 uint8_t request_data[REQUEST_BUFFER_SIZE];
@@ -249,6 +250,8 @@ handle_requests(void)
     char *mimeType;
     NPReason res;
 
+    EnterCriticalSection(&requestsCrit);
+
     for (i = 0; i < nrequests; i++) {
         Request *req = &requests[i];
 
@@ -276,11 +279,15 @@ handle_requests(void)
     /* clear all requests */
     memset(&requests, 0, sizeof(requests));
     nrequests = 0;
+
+    LeaveCriticalSection(&requestsCrit);
 }
 
 void
 register_request(const char *url, bool doNotify, void *notifyData)
 {
+    EnterCriticalSection(&requestsCrit);
+
     assert(nrequests < MAX_CONCURRENT_REQUESTS);
     assert(strlen(url) < MAX_URL_LENGTH);
 
@@ -290,11 +297,14 @@ register_request(const char *url, bool doNotify, void *notifyData)
     };
     strncpy(requests[nrequests].url, url, MAX_URL_LENGTH);
     nrequests++;
+
+    LeaveCriticalSection(&requestsCrit);
 }
 
 void
 init_network()
 {
+    InitializeCriticalSection(&requestsCrit);
     hinternet = InternetOpenA(USERAGENT, INTERNET_OPEN_TYPE_DIRECT, NULL, NULL, 0);
     assert(hinternet);
 }

@@ -19,6 +19,8 @@ typedef NPError     (OSCALL *NP_GetEntryPointsFuncOS)(NPPluginFuncs*);
 typedef NPError     (OSCALL *NP_InitializeFuncOS)(NPNetscapeFuncs*);
 typedef NPError     (OSCALL *NP_ShutdownFuncOS)(void);
 
+extern CRITICAL_SECTION requestsCrit;
+
 void handle_requests(void);
 void register_request(const char *url, bool doNotify, void *notifyData);
 void init_network(void);
