@@ -14,13 +14,17 @@
 
 #include "ffrunner.h"
 
+CRITICAL_SECTION gfxCrit;
+HANDLE requestEvent;
+HANDLE updateWindowEvent;
+HANDLE shutdownEvent;
+
 NPP_t npp;
 NPPluginFuncs pluginFuncs;
 NPNetscapeFuncs netscapeFuncs;
 NPSavedData saved;
 NPObject browserObject;
 NPClass browserClass;
-NPWindow npWin;
 
 #define NPIDENTIFIERCOUNT 32
 #define NPSTRINGMAXSIZE 128
@@ -383,6 +387,17 @@ initNetscapeFuncs(void)
     netscapeFuncs.getstringidentifiers = NPN_GetStringIdentifiersProc;
 }
 
+void
+update_window(void)
+{
+    NPError ret;
+    printf("> NPP_SetWindowProc\n");
+    EnterCriticalSection(&gfxCrit);
+    ret = pluginFuncs.setwindow(&npp, &npWin);
+    LeaveCriticalSection(&gfxCrit);
+    printf("returned %d\n", ret);
+}
+
 int
 main(void)
 {
@@ -390,14 +405,28 @@ main(void)
     NPError ret;
     NPObject *scriptableObject;
     HMODULE loader;
-    HWND hwnd;
-    RECT winRect;
+    HANDLE gfxThread;
+    HANDLE waitEvents[3] = { NULL };
+    DWORD waitResult;
+    bool shutdown;
 
     if (GetCurrentDirectory(MAX_PATH, cwd)) {
         printf("setenv(\"%s\")\n", cwd);
         SetEnvironmentVariable("UNITY_HOME_DIR", cwd);
     }
     SetEnvironmentVariable("UNITY_DISABLE_PLUGIN_UPDATES", "yes");
+
+    InitializeCriticalSection(&gfxCrit);
+    requestEvent = CreateEventA(NULL, true, false, NULL);
+    updateWindowEvent = CreateEventA(NULL, true, false, NULL);
+    shutdownEvent = CreateEventA(NULL, true, false, NULL);
+    if (!requestEvent || !updateWindowEvent || !shutdownEvent) {
+        printf("Failed to create events.\n");
+        exit(1);
+    }
+    waitEvents[0] = requestEvent;
+    waitEvents[1] = updateWindowEvent;
+    waitEvents[2] = shutdownEvent;
 
     initNetscapeFuncs();
     initBrowserObject();
@@ -459,34 +488,21 @@ main(void)
     ret = pluginFuncs.newp("application/vnd.ffuwp", &npp, 1, ARRLEN(argn), argn, argv, &saved);
     printf("returned %d\n", ret);
 
-    hwnd = prepare_window();
-    assert(hwnd);
-
-    npWin = (NPWindow){
-        .window = hwnd,
-        .x = 0, .y = 0,
-        .width = WIDTH, .height = HEIGHT,
-        .clipRect = {
-            0, 0, HEIGHT, WIDTH
-        },
-        .type = NPWindowTypeWindow
-    };
-
-    /* adjust plugin rect to the real inner size of the window */
-    if (GetClientRect(hwnd, &winRect)) {
-        npWin.clipRect.top = winRect.top;
-        npWin.clipRect.bottom = winRect.bottom;
-        npWin.clipRect.left = winRect.left;
-        npWin.clipRect.right = winRect.right;
-
-        npWin.height = winRect.bottom - winRect.top;
-        npWin.width = winRect.right - winRect.left;
+    /* init gfx thread */
+    gfxThread = CreateThread(NULL, 0, GfxThread, NULL, 0, NULL);
+    if (!gfxThread) {
+        printf("Failed to initialize graphics thread.\n");
+        exit(1);
     }
 
-    printf("> NPP_SetWindowProc\n");
-    ret = pluginFuncs.setwindow(&npp, &npWin);
-    printf("returned %d\n", ret);
-
+    /* wait for first window update, 3 sec timeout */
+    waitResult = WaitForSingleObject(updateWindowEvent, 3000);
+    if (waitResult != WAIT_OBJECT_0) {
+        printf("No response from graphics thread: %d\n", waitResult);
+        exit(1);
+    }
+    update_window();
+    ResetEvent(updateWindowEvent);
 
     printf("> NPP_GetValueProc\n");
     ret = pluginFuncs.getvalue(&npp, NPPVpluginScriptableNPObject, &scriptableObject);
@@ -502,7 +518,33 @@ main(void)
     /* load the actual content */
     register_request(SRC_URL, true, NULL);
 
-    message_loop();
+    shutdown = false;
+    while (!shutdown) {
+        waitResult = WaitForMultipleObjects(ARRLEN(waitEvents), waitEvents, false, INFINITE);
+        switch (waitResult)
+        {
+        case WAIT_OBJECT_0:
+            /* requestEvent */
+            handle_requests();
+            ResetEvent(requestEvent);
+            break;
+        case WAIT_OBJECT_0 + 1:
+            /* updateWindowEvent */
+            update_window();
+            ResetEvent(updateWindowEvent);
+            break;
+        case WAIT_OBJECT_0 + 2:
+            shutdown = true;
+            break;
+        case WAIT_FAILED:
+            waitResult = GetLastError();
+            printf("Event loop wait failed: %x\n", waitResult);
+            break;
+        default:
+            printf("Event loop error: %d\n", waitResult);
+            exit(1);
+        }
+    }
 
     return 0;
 }

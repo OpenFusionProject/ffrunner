@@ -10,6 +10,11 @@
 #define ARRLEN(x) (sizeof(x)/sizeof(*x))
 #define MIN(a, b) (a > b ? b : a)
 
+extern CRITICAL_SECTION gfxCrit;
+extern HANDLE requestEvent;
+extern HANDLE updateWindowEvent;
+extern HANDLE shutdownEvent;
+
 extern NPP_t npp;
 extern NPPluginFuncs pluginFuncs;
 extern NPNetscapeFuncs netscapeFuncs;
@@ -23,5 +28,4 @@ void handle_requests(void);
 void register_request(const char *url, bool doNotify, void *notifyData);
 void init_network(void);
 
-HWND prepare_window(void);
-void message_loop(void);
+DWORD WINAPI GfxThread(LPVOID param);

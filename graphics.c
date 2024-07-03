@@ -14,6 +14,9 @@
 
 #include "ffrunner.h"
 
+NPWindow npWin;
+HWND hwnd;
+
 LRESULT CALLBACK
 window_proc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 {
@@ -24,6 +27,7 @@ window_proc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
     switch (uMsg) {
     case WM_DESTROY:
         PostQuitMessage(0);
+        SetEvent(shutdownEvent);
         return 0;
     case WM_PAINT:
         hdc = BeginPaint(hwnd, &ps);
@@ -37,22 +41,23 @@ window_proc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
     case WM_SIZE:
         width = LOWORD(lParam);
         height = HIWORD(lParam);
-
+        EnterCriticalSection(&gfxCrit);
         npWin.width = npWin.clipRect.right = width;
         npWin.height = npWin.clipRect.bottom = height;
-        pluginFuncs.setwindow(&npp, &npWin);
+        LeaveCriticalSection(&gfxCrit);
+        SetEvent(updateWindowEvent);
         return 0;
     }
 
     return DefWindowProc(hwnd, uMsg, wParam, lParam);
 }
 
-HWND
+void
 prepare_window(void)
 {
-    WNDCLASS wc = {0};
-    HWND hwnd;
+    RECT winRect;
 
+    WNDCLASS wc = { 0 };
     wc.lpfnWndProc   = window_proc;
     wc.hInstance     = GetModuleHandleA(NULL);
     wc.lpszClassName = CLASS_NAME;
@@ -64,18 +69,49 @@ prepare_window(void)
     ShowWindow(hwnd, SW_SHOWDEFAULT);
     UpdateWindow(hwnd);
 
-    return hwnd;
+    npWin = (NPWindow){
+        .window = hwnd,
+        .x = 0, .y = 0,
+        .width = WIDTH, .height = HEIGHT,
+        .clipRect = {
+            0, 0, HEIGHT, WIDTH
+        },
+        .type = NPWindowTypeWindow
+    };
+
+    /* adjust plugin rect to the real inner size of the window */
+    if (GetClientRect(hwnd, &winRect)) {
+        npWin.clipRect.top = winRect.top;
+        npWin.clipRect.bottom = winRect.bottom;
+        npWin.clipRect.left = winRect.left;
+        npWin.clipRect.right = winRect.right;
+
+        npWin.height = winRect.bottom - winRect.top;
+        npWin.width = winRect.right - winRect.left;
+    }
 }
 
 void
 message_loop(void)
 {
     MSG msg = {0};
+    char buf[64];
 
     while (GetMessage(&msg, NULL, 0, 0) > 0)
     {
+        printf("Message time! hwnd: %p, msg: %x\n", msg.hwnd, msg.message);
+        if (GetWindowTextA(msg.hwnd, buf, 64)) {
+            printf("\t for window %s\n", buf);
+        }
         TranslateMessage(&msg);
         DispatchMessage(&msg);
-        handle_requests();
     }
+}
+
+DWORD
+WINAPI
+GfxThread(LPVOID param)
+{
+    prepare_window();
+    message_loop();
 }

@@ -289,6 +289,7 @@ register_request(const char *url, bool doNotify, void *notifyData)
     };
     strncpy(requests[nrequests].url, url, MAX_URL_LENGTH);
     nrequests++;
+    SetEvent(requestEvent);
 }
 
 void
