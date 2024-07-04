@@ -16,32 +16,21 @@
 
 #include "ffrunner.h"
 
-typedef struct Request Request;
-struct Request {
+typedef struct _Request {
     void *notifyData;
     bool doNotify;
     char url[MAX_URL_LENGTH];
     bool isPost;
     uint32_t postDataLen;
     char postData[REQUEST_BUFFER_SIZE];
-};
-
-CRITICAL_SECTION requestsCrit;
-HANDLE requestsReady;
-HANDLE ioReadyEvent;
-HANDLE ioProcessedEvent;
-
-int nrequests;
-Request requests[MAX_CONCURRENT_REQUESTS];
-uint8_t request_data[REQUEST_BUFFER_SIZE];
+} Request;
 
 #define IO_EVENT_NEW_STREAM 1
 #define IO_EVENT_WRITE_READY 2
 #define IO_EVENT_WRITE 3
 #define IO_EVENT_DESTROY_STREAM 4
 #define IO_EVENT_URL_NOTIFY 5
-typedef struct IoEvent IoEvent;
-struct IoEvent {
+typedef struct _IoEvent {
     uint8_t eventType;
 
     /* inputs */
@@ -59,7 +48,20 @@ struct IoEvent {
     size_t* wantBufSize;
     size_t* bytesWritten;
     NPError* err;
-};
+} IoEvent;
+
+typedef struct _WorkItem {
+    SLIST_ENTRY entry;
+    Request request;
+} WorkItem;
+
+HANDLE requestsReadyEvent;
+HANDLE requestsDoneEvent;
+HANDLE ioReadyEvent;
+HANDLE ioProcessedEvent;
+
+PSLIST_HEADER requestQueue;
+uint8_t requestData[REQUEST_BUFFER_SIZE];
 IoEvent ioEvent;
 
 HINTERNET hinternet;
@@ -246,7 +248,7 @@ file_handler(Request *req, char *mimeType, NPReason *res)
 
         assert(wantbufsize <= REQUEST_BUFFER_SIZE);
 
-        bytesRead = fread(request_data, 1, wantbufsize, f);
+        bytesRead = fread(requestData, 1, wantbufsize, f);
         if (bytesRead < wantbufsize) {
             if (ferror(f)) {
                 perror("fread");
@@ -260,7 +262,7 @@ file_handler(Request *req, char *mimeType, NPReason *res)
         if (bytesRead == 0)
             break;
 
-        set_io_write(&npstream, offset, bytesRead, request_data, &bytesWritten);
+        set_io_write(&npstream, offset, bytesRead, requestData, &bytesWritten);
 
         if (bytesWritten < 0 || bytesWritten < bytesRead) {
             goto failInStream;
@@ -382,7 +384,7 @@ http_handler(Request *req, char *mimeType, NPReason *res)
             wantbufsize = MIN(wantbufsize, npstream.end - offset);
         }
 
-        if (!InternetReadFile(reqHandle, request_data, wantbufsize, &bytesRead)) {
+        if (!InternetReadFile(reqHandle, requestData, wantbufsize, &bytesRead)) {
             goto failInStream;
         }
 
@@ -390,7 +392,7 @@ http_handler(Request *req, char *mimeType, NPReason *res)
         if (bytesRead == 0)
             break;
 
-        set_io_write(&npstream, offset, bytesRead, request_data, &bytesWritten);
+        set_io_write(&npstream, offset, bytesRead, requestData, &bytesWritten);
 
         if (bytesWritten < 0 || bytesWritten < bytesRead) {
             goto failInStream;
@@ -447,15 +449,17 @@ struct {
 void
 handle_requests(void)
 {
-    int i, j;
+    int j;
     bool hit;
     char *mimeType;
     NPReason res;
+    PSLIST_ENTRY entry;
+    bool processed;
 
-    EnterCriticalSection(&requestsCrit);
-
-    for (i = 0; i < nrequests; i++) {
-        Request *req = &requests[i];
+    entry = InterlockedPopEntrySList(requestQueue);
+    while (entry != NULL) {
+        WorkItem* workItem = (WorkItem*)entry;
+        Request* req = &workItem->request;
 
         /* defaults */
         res = NPRES_NETWORK_ERR;
@@ -476,69 +480,72 @@ handle_requests(void)
             printf("> NPP_URLNotify %d %s\n", res, req->url);
             set_io_urlnotify(req->url, res, req->notifyData);
         }
+
+        processed = true;
+        entry = InterlockedPopEntrySList(requestQueue);
     }
 
-    /* clear all requests */
-    memset(&requests, 0, sizeof(requests));
-    nrequests = 0;
-
-    LeaveCriticalSection(&requestsCrit);
+    if (processed)
+        SetEvent(requestsDoneEvent);
 }
 
 void
 register_get_request(const char *url, bool doNotify, void *notifyData)
 {
-    EnterCriticalSection(&requestsCrit);
-
-    assert(nrequests < MAX_CONCURRENT_REQUESTS);
     assert(strlen(url) < MAX_URL_LENGTH);
 
-    requests[nrequests] = (Request){
+    Request request = (Request){
         .notifyData = notifyData,
         .doNotify = doNotify,
         .isPost = false,
         .postDataLen = 0
     };
-    strncpy(requests[nrequests].url, url, MAX_URL_LENGTH);
-    nrequests++;
+    strncpy(request.url, url, MAX_URL_LENGTH);
 
-    LeaveCriticalSection(&requestsCrit);
-    SetEvent(requestsReady);
+    WorkItem* workItem = _aligned_malloc(sizeof(WorkItem), MEMORY_ALLOCATION_ALIGNMENT);
+    workItem->request = request;
+    InterlockedPushEntrySList(requestQueue, &(workItem->entry));
+
+    SetEvent(requestsReadyEvent);
 }
 
 void
 register_post_request(const char *url, bool doNotify, void *notifyData, uint32_t postDataLen, const char *postData)
 {
-    EnterCriticalSection(&requestsCrit);
-
-    assert(nrequests < MAX_CONCURRENT_REQUESTS);
     assert(strlen(url) < MAX_URL_LENGTH);
 
-    requests[nrequests] = (Request){
+    Request request = (Request){
         .notifyData = notifyData,
         .doNotify = doNotify,
         .isPost = true,
         .postDataLen = postDataLen
     };
-    strncpy(requests[nrequests].url, url, MAX_URL_LENGTH);
-    strncpy(requests[nrequests].postData, postData, postDataLen);
-    requests[nrequests].postData[postDataLen] = '\0';
-    nrequests++;
+    strncpy(request.url, url, MAX_URL_LENGTH);
+    memcpy(request.postData, postData, postDataLen);
 
-    LeaveCriticalSection(&requestsCrit);
-    SetEvent(requestsReady);
+    WorkItem* workItem = _aligned_malloc(sizeof(WorkItem), MEMORY_ALLOCATION_ALIGNMENT);
+    workItem->request = request;
+    InterlockedPushEntrySList(requestQueue, &(workItem->entry));
+
+    SetEvent(requestsReadyEvent);
 }
 
 void
-init_network()
+init_requests()
 {
-    InitializeCriticalSection(&requestsCrit);
-    requestsReady = CreateEvent(NULL, false, true, NULL);
-    assert(requestsReady);
+    requestQueue = (PSLIST_HEADER)_aligned_malloc(sizeof(SLIST_HEADER), MEMORY_ALLOCATION_ALIGNMENT);
+    assert(requestQueue);
+    InitializeSListHead(requestQueue);
+
+    requestsReadyEvent = CreateEvent(NULL, false, true, NULL);
+    assert(requestsReadyEvent);
+    requestsDoneEvent = CreateEvent(NULL, false, false, NULL);
+    assert(requestsDoneEvent);
     ioReadyEvent = CreateEvent(NULL, false, false, NULL);
     assert(ioReadyEvent);
     ioProcessedEvent = CreateEvent(NULL, false, false, NULL);
     assert(ioProcessedEvent);
+
     hinternet = InternetOpenA(USERAGENT, INTERNET_OPEN_TYPE_DIRECT, NULL, NULL, 0);
     assert(hinternet);
 }
@@ -554,7 +561,7 @@ request_loop(LPVOID param)
     printf("Requests on thread #%d\n", threadId);
 
     while (true) {
-        waitResult = WaitForSingleObject(requestsReady, INFINITE);
+        waitResult = WaitForSingleObject(requestsReadyEvent, INFINITE);
         switch (waitResult)
         {
         case WAIT_OBJECT_0:

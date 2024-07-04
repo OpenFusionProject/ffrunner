@@ -1,7 +1,6 @@
 #define USERAGENT "ffrunner"
 #define CLASS_NAME "FFWINDOW"
 #define REQUEST_BUFFER_SIZE 0x8000
-#define MAX_CONCURRENT_REQUESTS 64
 #define MAX_URL_LENGTH 256
 #define WIDTH 1280
 #define HEIGHT 720
@@ -19,7 +18,7 @@ extern NPPluginFuncs pluginFuncs;
 extern NPNetscapeFuncs netscapeFuncs;
 extern NPWindow npWin;
 
-extern CRITICAL_SECTION requestsCrit;
+extern HANDLE requestsDoneEvent;
 extern HANDLE ioReadyEvent;
 extern HANDLE ioProcessedEvent;
 
@@ -27,8 +26,8 @@ void handle_requests(void);
 void handle_io_event(void);
 void register_get_request(const char *url, bool doNotify, void *notifyData);
 void register_post_request(const char *url, bool doNotify, void *notifyData, uint32_t postDataLen, const char *postData);
-void init_network(void);
-
+void init_requests(void);
 DWORD WINAPI request_loop(LPVOID param);
+
 HWND prepare_window(void);
 bool message_loop(void);

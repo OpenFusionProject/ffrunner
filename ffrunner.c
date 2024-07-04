@@ -386,16 +386,25 @@ initNetscapeFuncs(void)
 void
 signal_loop(void)
 {
+    const HANDLE signals[] = { ioReadyEvent, requestsDoneEvent };
+
     DWORD waitResult;
+    bool initialLoadDone = false;
 
     while (true) {
-        waitResult = MsgWaitForMultipleObjects(1, &ioReadyEvent, false, INFINITE, QS_ALLEVENTS);
+        waitResult = MsgWaitForMultipleObjects(ARRLEN(signals), signals, false, INFINITE, QS_ALLEVENTS);
         switch (waitResult)
         {
         case WAIT_OBJECT_0:
             handle_io_event();
             break;
         case WAIT_OBJECT_0 + 1:
+            if (!initialLoadDone) {
+                register_get_request(SRC_URL, true, NULL);
+                initialLoadDone = true;
+            }
+            break;
+        case WAIT_OBJECT_0 + 2:
             if (message_loop())
                 return;
             break;
@@ -445,7 +454,7 @@ main(void)
         exit(1);
     }
 
-    init_network();
+    init_requests();
 
     printf("> NP_GetEntryPoints\n");
     ret = NP_GetEntryPoints(&pluginFuncs);
@@ -525,9 +534,6 @@ main(void)
 
     reqThread = CreateThread(NULL, 0, request_loop, NULL, 0, NULL);
     assert(reqThread);
-
-    /* load the actual content */
-    register_get_request(SRC_URL, true, NULL);
 
     signal_loop();
 
