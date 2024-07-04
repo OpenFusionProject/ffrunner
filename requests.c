@@ -481,6 +481,8 @@ handle_requests(void)
             set_io_urlnotify(req->url, res, req->notifyData);
         }
 
+        _aligned_free(workItem);
+
         processed = true;
         entry = InterlockedPopEntrySList(requestQueue);
     }
