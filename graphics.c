@@ -73,15 +73,19 @@ prepare_window(void)
     return hwnd;
 }
 
-void
+bool
 message_loop(void)
 {
     MSG msg = {0};
 
-    while (GetMessage(&msg, NULL, 0, 0) > 0)
+    while (PeekMessage(&msg, NULL, 0, 0, PM_REMOVE) > 0)
     {
         TranslateMessage(&msg);
         DispatchMessage(&msg);
-        handle_requests();
+
+        if (msg.message == WM_QUIT)
+            return true;
     }
+
+    return false;
 }

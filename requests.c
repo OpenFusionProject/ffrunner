@@ -31,6 +31,33 @@ int nrequests;
 Request requests[MAX_CONCURRENT_REQUESTS];
 uint8_t request_data[REQUEST_BUFFER_SIZE];
 
+#define IO_EVENT_NEW_STREAM 1
+#define IO_EVENT_WRITE_READY 2
+#define IO_EVENT_WRITE 3
+#define IO_EVENT_DESTROY_STREAM 4
+#define IO_EVENT_URL_NOTIFY 5
+typedef struct IoEvent IoEvent;
+struct IoEvent {
+    uint8_t eventType;
+
+    /* inputs */
+    NPStream* streamPtr;
+    char* mimeType;
+    uint16_t* streamTypePtr;
+    size_t offset;
+    size_t bytesToWrite;
+    uint8_t* streamData;
+    char* url;
+    NPReason res;
+    void* notifyData;
+
+    /* outputs */
+    size_t* wantBufSize;
+    size_t* bytesWritten;
+    NPError* err;
+};
+IoEvent ioEvent;
+
 HINTERNET hinternet;
 
 char *rewrite_mappings[][2] = {
@@ -59,6 +86,96 @@ rewrite_url(char *input)
             return rewrite_mappings[i][1];
 
     return input;
+}
+
+void
+set_io_newstream(char* mimeType, NPStream* streamPtr, uint16_t* streamTypePtr, NPError* err)
+{
+    ioEvent = (IoEvent){
+        .eventType = IO_EVENT_NEW_STREAM,
+        .mimeType = mimeType,
+        .streamPtr = streamPtr,
+        .streamTypePtr = streamTypePtr,
+        /* */
+        .err = err
+    };
+    handle_io_event();
+}
+
+void
+set_io_writeready(NPStream* streamPtr, size_t* wantBufSize)
+{
+    ioEvent = (IoEvent){
+        .eventType = IO_EVENT_WRITE_READY,
+        .streamPtr = streamPtr,
+        /* */
+        .wantBufSize = wantBufSize
+    };
+    handle_io_event();
+}
+
+void
+set_io_write(NPStream* streamPtr, size_t offset, size_t bytesToWrite, void* streamData, size_t* bytesWritten)
+{
+    ioEvent = (IoEvent){
+        .eventType = IO_EVENT_WRITE,
+        .streamPtr = streamPtr,
+        .offset = offset,
+        .bytesToWrite = bytesToWrite,
+        .streamData = streamData,
+        /* */
+        .bytesWritten = bytesWritten
+    };
+    handle_io_event();
+}
+
+void
+set_io_destroystream(NPStream* streamPtr, NPReason res)
+{
+    ioEvent = (IoEvent){
+        .eventType = IO_EVENT_DESTROY_STREAM,
+        .streamPtr = streamPtr,
+        .res = res
+    };
+    handle_io_event();
+}
+
+void
+set_io_urlnotify(char* url, NPReason res, void* notifyData)
+{
+    ioEvent = (IoEvent){
+        .eventType = IO_EVENT_URL_NOTIFY,
+        .url = url,
+        .res = res,
+        .notifyData = notifyData
+    };
+    handle_io_event();
+}
+
+void
+handle_io_event()
+{
+    switch (ioEvent.eventType)
+    {
+    case IO_EVENT_NEW_STREAM:
+        *ioEvent.err = pluginFuncs.newstream(&npp, ioEvent.mimeType, ioEvent.streamPtr, 0, ioEvent.streamTypePtr);
+        break;
+    case IO_EVENT_WRITE_READY:
+        *ioEvent.wantBufSize = pluginFuncs.writeready(&npp, ioEvent.streamPtr);
+        break;
+    case IO_EVENT_WRITE:
+        *ioEvent.bytesWritten = pluginFuncs.write(&npp, ioEvent.streamPtr, ioEvent.offset, ioEvent.bytesToWrite, ioEvent.streamData);
+        break;
+    case IO_EVENT_DESTROY_STREAM:
+        pluginFuncs.destroystream(&npp, ioEvent.streamPtr, ioEvent.res);
+        break;
+    case IO_EVENT_URL_NOTIFY:
+        pluginFuncs.urlnotify(&npp, ioEvent.url, ioEvent.res, ioEvent.notifyData);
+        break;
+    default:
+        printf("Bad IO event type %d\n", ioEvent.eventType);
+        exit(1);
+    }
 }
 
 void
@@ -96,7 +213,7 @@ file_handler(Request *req, char *mimeType, NPReason *res)
     rewind(f);
 
     printf("> NPP_NewStream %s\n", req->url);
-    npErr = pluginFuncs.newstream(&npp, mimeType, &npstream, 0, &streamtype);
+    set_io_newstream(mimeType, &npstream, &streamtype, &npErr);
     printf("returned %d\n", npErr);
     if (npErr != NPERR_NO_ERROR) {
         goto failWithOpenFile;
@@ -104,7 +221,7 @@ file_handler(Request *req, char *mimeType, NPReason *res)
     assert(streamtype == NP_NORMAL);
 
     for (offset = 0; offset < npstream.end; offset += bytesRead) {
-        wantbufsize = pluginFuncs.writeready(&npp, &npstream);
+        set_io_writeready(&npstream, &wantbufsize);
 
         /* Pick the smallest buffer size out of hardcoded, plugin-desired and bytes left in file. */
         wantbufsize = MIN(MIN(wantbufsize, npstream.end - offset), REQUEST_BUFFER_SIZE);
@@ -125,7 +242,7 @@ file_handler(Request *req, char *mimeType, NPReason *res)
         if (bytesRead == 0)
             break;
 
-        bytesWritten = pluginFuncs.write(&npp, &npstream, offset, bytesRead, request_data);
+        set_io_write(&npstream, offset, bytesRead, request_data, &bytesWritten);
 
         if (bytesWritten < 0 || bytesWritten < bytesRead) {
             goto failInStream;
@@ -135,7 +252,7 @@ file_handler(Request *req, char *mimeType, NPReason *res)
     printf("* done processing file of size %d\n", offset);
 
     printf("NPP_DestroyStream %s\n", path);
-    pluginFuncs.destroystream(&npp, &npstream, NPRES_DONE);
+    set_io_destroystream(&npstream, NPRES_DONE);
 
     fclose(f);
     *res = NPRES_DONE;
@@ -144,7 +261,7 @@ file_handler(Request *req, char *mimeType, NPReason *res)
 
 failInStream:
     printf("NPP_DestroyStream FAIL %s\n", path);
-    pluginFuncs.destroystream(&npp, &npstream, NPRES_NETWORK_ERR);
+    set_io_destroystream(&npstream, NPRES_NETWORK_ERR);
 
 failWithOpenFile:
     fclose(f);
@@ -231,7 +348,7 @@ http_handler(Request *req, char *mimeType, NPReason *res)
     npstream.end = lengthHint;
 
     printf("> NPP_NewStream %s\n", req->url);
-    npErr = pluginFuncs.newstream(&npp, mimeType, &npstream, 0, &streamtype);
+    set_io_newstream(mimeType, &npstream, &streamtype, &npErr);
     printf("returned %d\n", npErr);
     if (npErr != NPERR_NO_ERROR) {
         goto failWithReqHandle;
@@ -239,7 +356,7 @@ http_handler(Request *req, char *mimeType, NPReason *res)
     assert(streamtype == NP_NORMAL);
 
     for (offset = 0; ; offset += bytesRead) {
-        wantbufsize = pluginFuncs.writeready(&npp, &npstream);
+        set_io_writeready(&npstream, &wantbufsize);
 
         /* Pick the smallest buffer size out of hardcoded, plugin-desired and bytes left in file. */
         wantbufsize = MIN(wantbufsize, REQUEST_BUFFER_SIZE);
@@ -255,7 +372,7 @@ http_handler(Request *req, char *mimeType, NPReason *res)
         if (bytesRead == 0)
             break;
 
-        bytesWritten = pluginFuncs.write(&npp, &npstream, offset, bytesRead, request_data);
+        set_io_write(&npstream, offset, bytesRead, request_data, &bytesWritten);
 
         if (bytesWritten < 0 || bytesWritten < bytesRead) {
             goto failInStream;
@@ -265,7 +382,7 @@ http_handler(Request *req, char *mimeType, NPReason *res)
     printf("* done processing file of size %d\n", offset);
 
     printf("NPP_DestroyStream %s\n", req->url);
-    pluginFuncs.destroystream(&npp, &npstream, NPRES_DONE);
+    set_io_destroystream(&npstream, NPRES_DONE);
 
     InternetCloseHandle(reqHandle);
     InternetCloseHandle(connHandle);
@@ -275,7 +392,7 @@ http_handler(Request *req, char *mimeType, NPReason *res)
 
 failInStream:
     printf("NPP_DestroyStream FAIL %s\n", req->url);
-    pluginFuncs.destroystream(&npp, &npstream, NPRES_NETWORK_ERR);
+    set_io_destroystream(&npstream, NPRES_NETWORK_ERR);
 
 failWithReqHandle:
     InternetCloseHandle(reqHandle);
@@ -339,7 +456,7 @@ handle_requests(void)
 
         if (req->doNotify) {
             printf("> NPP_URLNotify %d %s\n", res, req->url);
-            pluginFuncs.urlnotify(&npp, req->url, res, req->notifyData);
+            set_io_urlnotify(req->url, res, req->notifyData);
         }
     }
 

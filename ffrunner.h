@@ -10,21 +10,23 @@
 #define ARRLEN(x) (sizeof(x)/sizeof(*x))
 #define MIN(a, b) (a > b ? b : a)
 
+typedef NPError     (OSCALL *NP_GetEntryPointsFuncOS)(NPPluginFuncs*);
+typedef NPError     (OSCALL *NP_InitializeFuncOS)(NPNetscapeFuncs*);
+typedef NPError     (OSCALL *NP_ShutdownFuncOS)(void);
+
 extern NPP_t npp;
 extern NPPluginFuncs pluginFuncs;
 extern NPNetscapeFuncs netscapeFuncs;
 extern NPWindow npWin;
 
-typedef NPError     (OSCALL *NP_GetEntryPointsFuncOS)(NPPluginFuncs*);
-typedef NPError     (OSCALL *NP_InitializeFuncOS)(NPNetscapeFuncs*);
-typedef NPError     (OSCALL *NP_ShutdownFuncOS)(void);
-
 extern CRITICAL_SECTION requestsCrit;
+extern HANDLE ioReadyEvent;
 
 void handle_requests(void);
+void handle_io_event(void);
 void register_get_request(const char *url, bool doNotify, void *notifyData);
 void register_post_request(const char *url, bool doNotify, void *notifyData, uint32_t postDataLen, const char *postData);
 void init_network(void);
 
 HWND prepare_window(void);
-void message_loop(void);
+bool message_loop(void);

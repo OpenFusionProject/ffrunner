@@ -383,6 +383,16 @@ initNetscapeFuncs(void)
     netscapeFuncs.getstringidentifiers = NPN_GetStringIdentifiersProc;
 }
 
+void
+signal_loop(void)
+{
+    while (true) {
+        if (message_loop())
+            break;
+        handle_requests();
+    }
+}
+
 int
 main(void)
 {
@@ -504,7 +514,7 @@ main(void)
     /* load the actual content */
     register_get_request(SRC_URL, true, NULL);
 
-    message_loop();
+    signal_loop();
 
     return 0;
 }
