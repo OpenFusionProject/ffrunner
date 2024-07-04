@@ -22,7 +22,10 @@ window_proc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
     HDC hdc;
 
     switch (uMsg) {
+    case WM_CLOSE:
+        /* fall-through */
     case WM_DESTROY:
+        pluginFuncs.setwindow(&npp, NULL);
         PostQuitMessage(0);
         return 0;
     case WM_PAINT:
