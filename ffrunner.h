@@ -18,9 +18,9 @@ extern NPPluginFuncs pluginFuncs;
 extern NPNetscapeFuncs netscapeFuncs;
 extern NPWindow npWin;
 
-extern HANDLE requestsDoneEvent;
-extern HANDLE ioReadyEvent;
-extern HANDLE ioProcessedEvent;
+extern HANDLE requestsDoneSig;
+extern HANDLE ioReadySig;
+extern HANDLE ioProcessedSig;
 
 void handle_requests(void);
 void handle_io_event(void);
@@ -30,4 +30,4 @@ void init_requests(void);
 DWORD WINAPI request_loop(LPVOID param);
 
 HWND prepare_window(void);
-bool message_loop(void);
+bool handle_messages(void);

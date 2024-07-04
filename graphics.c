@@ -74,7 +74,7 @@ prepare_window(void)
 }
 
 bool
-message_loop(void)
+handle_messages(void)
 {
     MSG msg = {0};
 

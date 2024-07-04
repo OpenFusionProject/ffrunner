@@ -55,10 +55,10 @@ typedef struct _WorkItem {
     Request request;
 } WorkItem;
 
-HANDLE requestsReadyEvent;
-HANDLE requestsDoneEvent;
-HANDLE ioReadyEvent;
-HANDLE ioProcessedEvent;
+HANDLE requestsReadySig;
+HANDLE requestsDoneSig;
+HANDLE ioReadySig;
+HANDLE ioProcessedSig;
 
 PSLIST_HEADER requestQueue;
 uint8_t requestData[REQUEST_BUFFER_SIZE];
@@ -98,13 +98,11 @@ void
 post_io_and_wait()
 {
     DWORD waitResult;
-    printf("Posted I/O %d\n", ioEvent.eventType);
-    waitResult = SignalObjectAndWait(ioReadyEvent, ioProcessedEvent, INFINITE, false);
+    waitResult = SignalObjectAndWait(ioReadySig, ioProcessedSig, INFINITE, false);
     if (waitResult != WAIT_OBJECT_0) {
         printf("IO signal error: 0x%x\n", waitResult);
         exit(1);
     }
-    printf("Got response\n");
 }
 
 void
@@ -195,7 +193,7 @@ handle_io_event()
         printf("Bad IO event type %d\n", ioEvent.eventType);
         exit(1);
     }
-    SetEvent(ioProcessedEvent);
+    SetEvent(ioProcessedSig);
 }
 
 void
@@ -488,7 +486,7 @@ handle_requests(void)
     }
 
     if (processed)
-        SetEvent(requestsDoneEvent);
+        SetEvent(requestsDoneSig);
 }
 
 void
@@ -508,7 +506,7 @@ register_get_request(const char *url, bool doNotify, void *notifyData)
     workItem->request = request;
     InterlockedPushEntrySList(requestQueue, &(workItem->entry));
 
-    SetEvent(requestsReadyEvent);
+    SetEvent(requestsReadySig);
 }
 
 void
@@ -529,7 +527,7 @@ register_post_request(const char *url, bool doNotify, void *notifyData, uint32_t
     workItem->request = request;
     InterlockedPushEntrySList(requestQueue, &(workItem->entry));
 
-    SetEvent(requestsReadyEvent);
+    SetEvent(requestsReadySig);
 }
 
 void
@@ -539,17 +537,20 @@ init_requests()
     assert(requestQueue);
     InitializeSListHead(requestQueue);
 
-    requestsReadyEvent = CreateEvent(NULL, false, true, NULL);
-    assert(requestsReadyEvent);
-    requestsDoneEvent = CreateEvent(NULL, false, false, NULL);
-    assert(requestsDoneEvent);
-    ioReadyEvent = CreateEvent(NULL, false, false, NULL);
-    assert(ioReadyEvent);
-    ioProcessedEvent = CreateEvent(NULL, false, false, NULL);
-    assert(ioProcessedEvent);
+    requestsReadySig = CreateEvent(NULL, false, true, NULL);
+    requestsDoneSig = CreateEvent(NULL, false, false, NULL);
+    ioReadySig = CreateEvent(NULL, false, false, NULL);
+    ioProcessedSig = CreateEvent(NULL, false, false, NULL);
+    if (!requestsReadySig || !requestsDoneSig || !ioReadySig || !ioProcessedSig) {
+        printf("Failed to create IO events\n");
+        exit(1);
+    }
 
     hinternet = InternetOpenA(USERAGENT, INTERNET_OPEN_TYPE_DIRECT, NULL, NULL, 0);
-    assert(hinternet);
+    if (!hinternet) {
+        printf("No internet connection\n");
+        exit(1);
+    }
 }
 
 DWORD
@@ -563,7 +564,7 @@ request_loop(LPVOID param)
     printf("Requests on thread #%d\n", threadId);
 
     while (true) {
-        waitResult = WaitForSingleObject(requestsReadyEvent, INFINITE);
+        waitResult = WaitForSingleObject(requestsReadySig, INFINITE);
         switch (waitResult)
         {
         case WAIT_OBJECT_0:
