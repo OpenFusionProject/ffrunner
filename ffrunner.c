@@ -386,10 +386,23 @@ initNetscapeFuncs(void)
 void
 signal_loop(void)
 {
+    DWORD waitResult;
+
     while (true) {
-        if (message_loop())
+        waitResult = MsgWaitForMultipleObjects(1, &ioReadyEvent, false, INFINITE, QS_ALLEVENTS);
+        switch (waitResult)
+        {
+        case WAIT_OBJECT_0:
+            handle_io_event();
             break;
-        handle_requests();
+        case WAIT_OBJECT_0 + 1:
+            if (message_loop())
+                return;
+            break;
+        default:
+            printf("Signal loop error: 0x%x\n", waitResult);
+            exit(1);
+        }
     }
 }
 
@@ -403,6 +416,7 @@ main(void)
     HMODULE loader;
     HWND hwnd;
     RECT winRect;
+    HANDLE reqThread;
 
     if (GetCurrentDirectory(MAX_PATH, cwd)) {
         printf("setenv(\"%s\")\n", cwd);
@@ -509,7 +523,8 @@ main(void)
     ret = scriptableObject->_class->hasMethod(scriptableObject, getNPIdentifier("style"));
     printf("returned %d\n", ret);
 
-    handle_requests();
+    reqThread = CreateThread(NULL, 0, request_loop, NULL, 0, NULL);
+    assert(reqThread);
 
     /* load the actual content */
     register_get_request(SRC_URL, true, NULL);

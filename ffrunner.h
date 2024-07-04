@@ -21,6 +21,7 @@ extern NPWindow npWin;
 
 extern CRITICAL_SECTION requestsCrit;
 extern HANDLE ioReadyEvent;
+extern HANDLE ioProcessedEvent;
 
 void handle_requests(void);
 void handle_io_event(void);
@@ -28,5 +29,6 @@ void register_get_request(const char *url, bool doNotify, void *notifyData);
 void register_post_request(const char *url, bool doNotify, void *notifyData, uint32_t postDataLen, const char *postData);
 void init_network(void);
 
+DWORD WINAPI request_loop(LPVOID param);
 HWND prepare_window(void);
 bool message_loop(void);

@@ -27,6 +27,10 @@ struct Request {
 };
 
 CRITICAL_SECTION requestsCrit;
+HANDLE requestsReady;
+HANDLE ioReadyEvent;
+HANDLE ioProcessedEvent;
+
 int nrequests;
 Request requests[MAX_CONCURRENT_REQUESTS];
 uint8_t request_data[REQUEST_BUFFER_SIZE];
@@ -89,6 +93,19 @@ rewrite_url(char *input)
 }
 
 void
+post_io_and_wait()
+{
+    DWORD waitResult;
+    printf("Posted I/O %d\n", ioEvent.eventType);
+    waitResult = SignalObjectAndWait(ioReadyEvent, ioProcessedEvent, INFINITE, false);
+    if (waitResult != WAIT_OBJECT_0) {
+        printf("IO signal error: 0x%x\n", waitResult);
+        exit(1);
+    }
+    printf("Got response\n");
+}
+
+void
 set_io_newstream(char* mimeType, NPStream* streamPtr, uint16_t* streamTypePtr, NPError* err)
 {
     ioEvent = (IoEvent){
@@ -99,7 +116,7 @@ set_io_newstream(char* mimeType, NPStream* streamPtr, uint16_t* streamTypePtr, N
         /* */
         .err = err
     };
-    handle_io_event();
+    post_io_and_wait();
 }
 
 void
@@ -111,7 +128,7 @@ set_io_writeready(NPStream* streamPtr, size_t* wantBufSize)
         /* */
         .wantBufSize = wantBufSize
     };
-    handle_io_event();
+    post_io_and_wait();
 }
 
 void
@@ -126,7 +143,7 @@ set_io_write(NPStream* streamPtr, size_t offset, size_t bytesToWrite, void* stre
         /* */
         .bytesWritten = bytesWritten
     };
-    handle_io_event();
+    post_io_and_wait();
 }
 
 void
@@ -137,7 +154,7 @@ set_io_destroystream(NPStream* streamPtr, NPReason res)
         .streamPtr = streamPtr,
         .res = res
     };
-    handle_io_event();
+    post_io_and_wait();
 }
 
 void
@@ -149,7 +166,7 @@ set_io_urlnotify(char* url, NPReason res, void* notifyData)
         .res = res,
         .notifyData = notifyData
     };
-    handle_io_event();
+    post_io_and_wait();
 }
 
 void
@@ -176,6 +193,7 @@ handle_io_event()
         printf("Bad IO event type %d\n", ioEvent.eventType);
         exit(1);
     }
+    SetEvent(ioProcessedEvent);
 }
 
 void
@@ -485,11 +503,14 @@ register_get_request(const char *url, bool doNotify, void *notifyData)
     nrequests++;
 
     LeaveCriticalSection(&requestsCrit);
+    SetEvent(requestsReady);
 }
 
 void
 register_post_request(const char *url, bool doNotify, void *notifyData, uint32_t postDataLen, const char *postData)
 {
+    EnterCriticalSection(&requestsCrit);
+
     assert(nrequests < MAX_CONCURRENT_REQUESTS);
     assert(strlen(url) < MAX_URL_LENGTH);
 
@@ -503,12 +524,45 @@ register_post_request(const char *url, bool doNotify, void *notifyData, uint32_t
     strncpy(requests[nrequests].postData, postData, postDataLen);
     requests[nrequests].postData[postDataLen] = '\0';
     nrequests++;
+
+    LeaveCriticalSection(&requestsCrit);
+    SetEvent(requestsReady);
 }
 
 void
 init_network()
 {
     InitializeCriticalSection(&requestsCrit);
+    requestsReady = CreateEvent(NULL, false, true, NULL);
+    assert(requestsReady);
+    ioReadyEvent = CreateEvent(NULL, false, false, NULL);
+    assert(ioReadyEvent);
+    ioProcessedEvent = CreateEvent(NULL, false, false, NULL);
+    assert(ioProcessedEvent);
     hinternet = InternetOpenA(USERAGENT, INTERNET_OPEN_TYPE_DIRECT, NULL, NULL, 0);
     assert(hinternet);
+}
+
+DWORD
+WINAPI
+request_loop(LPVOID param)
+{
+    DWORD waitResult;
+    DWORD threadId;
+
+    threadId = GetCurrentThreadId();
+    printf("Requests on thread #%d\n", threadId);
+
+    while (true) {
+        waitResult = WaitForSingleObject(requestsReady, INFINITE);
+        switch (waitResult)
+        {
+        case WAIT_OBJECT_0:
+            handle_requests();
+            break;
+        default:
+            printf("Request loop wait error: 0x%x\n", waitResult);
+            exit(1);
+        }
+    }
 }
