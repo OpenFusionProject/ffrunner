@@ -56,7 +56,6 @@ typedef struct _WorkItem {
 } WorkItem;
 
 HANDLE requestsReadySig;
-HANDLE requestsDoneSig;
 HANDLE ioReadySig;
 HANDLE ioProcessedSig;
 
@@ -188,6 +187,10 @@ handle_io_event()
         break;
     case IO_EVENT_URL_NOTIFY:
         pluginFuncs.urlnotify(&npp, ioEvent.url, ioEvent.res, ioEvent.notifyData);
+        if (strcmp(ioEvent.url, "assets/img/unity-dexlabs.png") == 0) {
+            printf("Ready for main.unity3d load\n");
+            register_get_request(SRC_URL, true, NULL);
+        }
         break;
     default:
         printf("Bad IO event type %d\n", ioEvent.eventType);
@@ -452,9 +455,7 @@ handle_requests(void)
     char *mimeType;
     NPReason res;
     PSLIST_ENTRY entry;
-    bool processed;
 
-    processed = false;
     entry = InterlockedPopEntrySList(requestQueue);
     while (entry != NULL) {
         WorkItem* workItem = (WorkItem*)entry;
@@ -482,12 +483,8 @@ handle_requests(void)
 
         _aligned_free(workItem);
 
-        processed = true;
         entry = InterlockedPopEntrySList(requestQueue);
     }
-
-    if (processed)
-        SetEvent(requestsDoneSig);
 }
 
 void
@@ -539,10 +536,9 @@ init_requests()
     InitializeSListHead(requestQueue);
 
     requestsReadySig = CreateEvent(NULL, false, true, NULL);
-    requestsDoneSig = CreateEvent(NULL, false, false, NULL);
     ioReadySig = CreateEvent(NULL, false, false, NULL);
     ioProcessedSig = CreateEvent(NULL, false, false, NULL);
-    if (!requestsReadySig || !requestsDoneSig || !ioReadySig || !ioProcessedSig) {
+    if (!requestsReadySig || !ioReadySig || !ioProcessedSig) {
         printf("Failed to create IO events\n");
         exit(1);
     }

@@ -18,7 +18,6 @@ extern NPPluginFuncs pluginFuncs;
 extern NPNetscapeFuncs netscapeFuncs;
 extern NPWindow npWin;
 
-extern HANDLE requestsDoneSig;
 extern HANDLE ioReadySig;
 extern HANDLE ioProcessedSig;
 

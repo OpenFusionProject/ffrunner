@@ -386,7 +386,7 @@ initNetscapeFuncs(void)
 void
 signal_loop(void)
 {
-    const HANDLE signals[] = { ioReadySig, requestsDoneSig };
+    const HANDLE signals[] = { ioReadySig };
 
     DWORD waitResult;
     bool initialLoadDone = false;
@@ -399,15 +399,7 @@ signal_loop(void)
             /* I/O posted and needs to be processed */
             handle_io_event();
             break;
-        case WAIT_OBJECT_0 + 1:
-            /* All queued requests are done processing */
-            if (!initialLoadDone) {
-                /* Load main.unity3d */
-                register_get_request(SRC_URL, true, NULL);
-                initialLoadDone = true;
-            }
-            break;
-        case WAIT_OBJECT_0 + 2:
+        case WAIT_OBJECT_0 + ARRLEN(signals):
             /* Message(s) posted and need to be processed */
             if (handle_messages())
                 /* Quit message received */
