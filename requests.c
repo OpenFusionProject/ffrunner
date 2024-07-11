@@ -454,6 +454,7 @@ handle_requests(void)
     PSLIST_ENTRY entry;
     bool processed;
 
+    processed = false;
     entry = InterlockedPopEntrySList(requestQueue);
     while (entry != NULL) {
         WorkItem* workItem = (WorkItem*)entry;
