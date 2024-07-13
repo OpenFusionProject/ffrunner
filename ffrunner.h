@@ -1,3 +1,18 @@
+#pragma once
+
+#include <stdlib.h>
+#include <stdint.h>
+#include <stdbool.h>
+
+#include <assert.h>
+
+#include <windows.h>
+
+#include "npapi/npapi.h"
+#include "npapi/npfunctions.h"
+#include "npapi/npruntime.h"
+#include "npapi/nptypes.h"
+
 #define USERAGENT "ffrunner"
 #define CLASS_NAME "FFWINDOW"
 #define REQUEST_BUFFER_SIZE 0x8000

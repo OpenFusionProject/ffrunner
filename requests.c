@@ -1,20 +1,7 @@
-#include <stdio.h>
-#include <stdlib.h>
-#include <stdint.h>
-#include <stdbool.h>
-#include <string.h>
-#include <assert.h>
-
-#include <windows.h>
-#include <wininet.h>
-//#pragma comment(lib, "Wininet.lib")
-
-#include "npapi/npapi.h"
-#include "npapi/npfunctions.h"
-#include "npapi/npruntime.h"
-#include "npapi/nptypes.h"
-
 #include "ffrunner.h"
+
+#include <stdio.h>
+#include <wininet.h>
 
 typedef struct Request Request;
 struct Request {

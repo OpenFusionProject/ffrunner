@@ -1,17 +1,3 @@
-#include <stdio.h>
-#include <stdlib.h>
-#include <stdint.h>
-#include <stdbool.h>
-#include <string.h>
-#include <assert.h>
-
-#include <windows.h>
-
-#include "npapi/npapi.h"
-#include "npapi/npfunctions.h"
-#include "npapi/npruntime.h"
-#include "npapi/nptypes.h"
-
 #include "ffrunner.h"
 
 LRESULT CALLBACK
