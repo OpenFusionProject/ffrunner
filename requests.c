@@ -99,7 +99,7 @@ post_io_and_wait()
     DWORD waitResult;
     waitResult = SignalObjectAndWait(ioReadySig, ioProcessedSig, INFINITE, false);
     if (waitResult != WAIT_OBJECT_0) {
-        printf("IO signal error: 0x%x\n", waitResult);
+        log("IO signal error: 0x%x\n", waitResult);
         exit(1);
     }
 }
@@ -188,12 +188,12 @@ handle_io_event()
     case IO_EVENT_URL_NOTIFY:
         pluginFuncs.urlnotify(&npp, ioEvent.url, ioEvent.res, ioEvent.notifyData);
         if (strcmp(ioEvent.url, "assets/img/unity-dexlabs.png") == 0) {
-            printf("Ready for main.unity3d load\n");
+            log("Ready for main.unity3d load\n");
             register_get_request(SRC_URL, true, NULL);
         }
         break;
     default:
-        printf("Bad IO event type %d\n", ioEvent.eventType);
+        log("Bad IO event type %d\n", ioEvent.eventType);
         exit(1);
     }
     SetEvent(ioProcessedSig);
@@ -233,9 +233,9 @@ file_handler(Request *req, char *mimeType, NPReason *res)
     /* seek back to start */
     rewind(f);
 
-    printf("> NPP_NewStream %s\n", req->url);
+    log("> NPP_NewStream %s\n", req->url);
     set_io_newstream(mimeType, &npstream, &streamtype, &npErr);
-    printf("returned %d\n", npErr);
+    log("returned %d\n", npErr);
     if (npErr != NPERR_NO_ERROR) {
         goto failWithOpenFile;
     }
@@ -256,7 +256,7 @@ file_handler(Request *req, char *mimeType, NPReason *res)
                 goto failInStream;
             }
             if (feof(f))
-                printf("IS EOF\n");
+                log("IS EOF\n");
         }
 
         /* Do not write empty buffers. */
@@ -270,9 +270,9 @@ file_handler(Request *req, char *mimeType, NPReason *res)
         }
     }
 
-    printf("* done processing file of size %d\n", offset);
+    log("* done processing file of size %d\n", offset);
 
-    printf("NPP_DestroyStream %s\n", path);
+    log("NPP_DestroyStream %s\n", path);
     set_io_destroystream(&npstream, NPRES_DONE);
 
     fclose(f);
@@ -281,7 +281,7 @@ file_handler(Request *req, char *mimeType, NPReason *res)
     return;
 
 failInStream:
-    printf("NPP_DestroyStream FAIL %s\n", path);
+    log("NPP_DestroyStream FAIL %s\n", path);
     set_io_destroystream(&npstream, NPRES_NETWORK_ERR);
 
 failWithOpenFile:
@@ -324,7 +324,7 @@ http_handler(Request *req, char *mimeType, NPReason *res)
 
     connHandle = InternetConnectA(hinternet, hostname, urlComponents.nPort, NULL, NULL, INTERNET_SERVICE_HTTP, 0, 0);
     if (!connHandle) {
-        printf("Failed internetconnect: %d\n", GetLastError());
+        log("Failed internetconnect: %d\n", GetLastError());
         goto failEarly;
     }
 
@@ -335,10 +335,10 @@ http_handler(Request *req, char *mimeType, NPReason *res)
     if (urlComponents.nScheme == INTERNET_SCHEME_HTTPS) {
         flags |= INTERNET_FLAG_SECURE;
     }
-    printf("Verb: %s\nHost: %s\nPort: %d\nObject: %s\n", verb, hostname, urlComponents.nPort, filepath);
+    log("Verb: %s\nHost: %s\nPort: %d\nObject: %s\n", verb, hostname, urlComponents.nPort, filepath);
     reqHandle = HttpOpenRequestA(connHandle, verb, filepath, NULL, NULL, acceptedTypes, flags, 0);
     if (!reqHandle) {
-        printf("Failed httpopen: %d\n", GetLastError());
+        log("Failed httpopen: %d\n", GetLastError());
         goto failWithConnHandle;
     }
 
@@ -353,7 +353,7 @@ http_handler(Request *req, char *mimeType, NPReason *res)
         payloadSz = req->postDataLen - headersSz;
     }
     if (!HttpSendRequestA(reqHandle, headers, headersSz, payload, payloadSz)) {
-        printf("Failed httpsend: %d\n", GetLastError());
+        log("Failed httpsend: %d\n", GetLastError());
         goto failWithReqHandle;
     }
 
@@ -363,14 +363,14 @@ http_handler(Request *req, char *mimeType, NPReason *res)
     lenlen = sizeof(lengthHint);
     if (!HttpQueryInfoA(reqHandle, HTTP_QUERY_FLAG_NUMBER|HTTP_QUERY_CONTENT_LENGTH, &lengthHint, &lenlen, 0)
         && GetLastError() != ERROR_HTTP_HEADER_NOT_FOUND) {
-        printf("Failed httpquery: %d\n", GetLastError());
+        log("Failed httpquery: %d\n", GetLastError());
         goto failWithReqHandle;
     }
     npstream.end = lengthHint;
 
-    printf("> NPP_NewStream %s\n", req->url);
+    log("> NPP_NewStream %s\n", req->url);
     set_io_newstream(mimeType, &npstream, &streamtype, &npErr);
-    printf("returned %d\n", npErr);
+    log("returned %d\n", npErr);
     if (npErr != NPERR_NO_ERROR) {
         goto failWithReqHandle;
     }
@@ -400,9 +400,9 @@ http_handler(Request *req, char *mimeType, NPReason *res)
         }
     }
 
-    printf("* done processing file of size %d\n", offset);
+    log("* done processing file of size %d\n", offset);
 
-    printf("NPP_DestroyStream %s\n", req->url);
+    log("NPP_DestroyStream %s\n", req->url);
     set_io_destroystream(&npstream, NPRES_DONE);
 
     InternetCloseHandle(reqHandle);
@@ -412,7 +412,7 @@ http_handler(Request *req, char *mimeType, NPReason *res)
     return;
 
 failInStream:
-    printf("NPP_DestroyStream FAIL %s\n", req->url);
+    log("NPP_DestroyStream FAIL %s\n", req->url);
     set_io_destroystream(&npstream, NPRES_NETWORK_ERR);
 
 failWithReqHandle:
@@ -477,7 +477,7 @@ handle_requests(void)
             http_handler(req, mimeType, &res);
 
         if (req->doNotify) {
-            printf("> NPP_URLNotify %d %s\n", res, req->url);
+            log("> NPP_URLNotify %d %s\n", res, req->url);
             set_io_urlnotify(req->url, res, req->notifyData);
         }
 
@@ -539,13 +539,13 @@ init_requests()
     ioReadySig = CreateEvent(NULL, false, false, NULL);
     ioProcessedSig = CreateEvent(NULL, false, false, NULL);
     if (!requestsReadySig || !ioReadySig || !ioProcessedSig) {
-        printf("Failed to create IO events\n");
+        log("Failed to create IO events\n");
         exit(1);
     }
 
     hinternet = InternetOpenA(USERAGENT, INTERNET_OPEN_TYPE_DIRECT, NULL, NULL, 0);
     if (!hinternet) {
-        printf("No internet connection\n");
+        log("No internet connection\n");
         exit(1);
     }
 }
@@ -558,7 +558,7 @@ request_loop(LPVOID param)
     DWORD threadId;
 
     threadId = GetCurrentThreadId();
-    printf("Requests on thread #%d\n", threadId);
+    log("Requests on thread #%d\n", threadId);
 
     while (true) {
         waitResult = WaitForSingleObject(requestsReadySig, INFINITE);
@@ -568,7 +568,7 @@ request_loop(LPVOID param)
             handle_requests();
             break;
         default:
-            printf("Request loop wait error: 0x%x\n", waitResult);
+            log("Request loop wait error: 0x%x\n", waitResult);
             exit(1);
         }
     }

@@ -2,6 +2,7 @@ SRC=\
 	ffrunner.c\
 	requests.c\
 	graphics.c\
+	logging.c\
 
 HDR=\
 	npapi/npapi.h\

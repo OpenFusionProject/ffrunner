@@ -1,3 +1,12 @@
+#include <stdlib.h>
+#include <stdint.h>
+#include <stdbool.h>
+
+#include "npapi/npapi.h"
+#include "npapi/npfunctions.h"
+#include "npapi/npruntime.h"
+#include "npapi/nptypes.h"
+
 #define USERAGENT "ffrunner"
 #define CLASS_NAME "FFWINDOW"
 #define REQUEST_BUFFER_SIZE 0x8000
@@ -30,3 +39,6 @@ DWORD WINAPI request_loop(LPVOID param);
 
 HWND prepare_window(void);
 bool handle_messages(void);
+
+void init_logging();
+void log(char *fmt, ...);
