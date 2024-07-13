@@ -294,7 +294,7 @@ failEarly:
 void
 http_handler(Request *req, char *mimeType, NPReason *res)
 {
-    uint64_t wantbufsize;
+    uint32_t wantbufsize;
     long unsigned int lenlen, bytesRead;
     size_t bytesWritten, offset;
     uint32_t lengthHint;
@@ -377,6 +377,9 @@ http_handler(Request *req, char *mimeType, NPReason *res)
     assert(streamtype == NP_NORMAL);
 
     for (offset = 0; ; offset += bytesRead) {
+        if (lengthHint != 0 && offset >= lengthHint)
+            break;
+
         set_io_writeready(&npstream, &wantbufsize);
 
         /* Pick the smallest buffer size out of hardcoded, plugin-desired and bytes left in file. */
