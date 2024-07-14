@@ -370,8 +370,9 @@ initNetscapeFuncs(void)
 }
 
 int
-main(void)
+main(int argc, char **argv)
 {
+    char* srcUrl;
     DWORD err;
     char cwd[MAX_PATH];
     NPError ret;
@@ -381,6 +382,14 @@ main(void)
     RECT winRect;
 
     init_logging(LOG_FILE_PATH);
+
+    if (argc < 2) {
+        srcUrl = FALLBACK_SRC_URL;
+        log("No source URL specified, using %s\n", srcUrl);
+    } else {
+        srcUrl = argv[1];
+        log("Using %s\n", srcUrl);
+    }
 
     if (GetCurrentDirectory(MAX_PATH, cwd)) {
         log("setenv(\"%s\")\n", cwd);
@@ -431,8 +440,8 @@ main(void)
         "progressbarimage",
         "progressframeimage",
     };
-    char *argv[] = {
-        SRC_URL,
+    char *argp[] = {
+        srcUrl,
         "1280",
         "680",
         "000000",
@@ -443,10 +452,10 @@ main(void)
         "assets/img/unity-loadingbar.png",
         "assets/img/unity-loadingframe.png",
     };
-    assert(ARRLEN(argn) == ARRLEN(argv));
+    assert(ARRLEN(argn) == ARRLEN(argp));
 
     log("> NPP_NewProc\n");
-    ret = pluginFuncs.newp("application/vnd.ffuwp", &npp, 1, ARRLEN(argn), argn, argv, &saved);
+    ret = pluginFuncs.newp("application/vnd.ffuwp", &npp, 1, ARRLEN(argn), argn, argp, &saved);
     log("returned %d\n", ret);
 
     hwnd = prepare_window();
@@ -490,7 +499,7 @@ main(void)
     handle_requests();
 
     /* load the actual content */
-    register_get_request(SRC_URL, true, NULL);
+    register_get_request(srcUrl, true, NULL);
 
     message_loop();
 

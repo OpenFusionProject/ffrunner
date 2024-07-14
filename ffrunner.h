@@ -21,7 +21,7 @@
 #define MAX_URL_LENGTH 256
 #define WIDTH 1280
 #define HEIGHT 720
-#define SRC_URL "http://cdn.dexlabs.systems/ff/big/beta-20100104/main.unity3d"
+#define FALLBACK_SRC_URL "http://cdn.dexlabs.systems/ff/big/beta-20100104/main.unity3d"
 
 #define ARRLEN(x) (sizeof(x)/sizeof(*x))
 #define MIN(a, b) (a > b ? b : a)

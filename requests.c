@@ -20,32 +20,11 @@ uint8_t request_data[REQUEST_BUFFER_SIZE];
 
 HINTERNET hinternet;
 
-char *rewrite_mappings[][2] = {
-    SRC_URL,            "assets/main.unity3d",
-    "rankurl.txt",      "assets/rankurl.txt",
-    "assetInfo.php",    "assets/assetInfo.php",
-    "loginInfo.php",    "assets/loginInfo.php",
-    "images.php",       "assets/images.php",
-    "sponsor.php",      "assets/sponsor.php",
-};
-
 char *
 get_post_payload(const char *buf)
 {
     const char *term = "\r\n\r\n";
     return strstr(buf, term) + sizeof(term);
-}
-
-char *
-rewrite_url(char *input)
-{
-    int i;
-
-    for (i = 0; i < ARRLEN(rewrite_mappings); i++)
-        if (strcmp(input, rewrite_mappings[i][0]) == 0)
-            return rewrite_mappings[i][1];
-
-    return input;
 }
 
 void
@@ -57,14 +36,14 @@ file_handler(Request *req, char *mimeType, NPReason *res)
     size_t bytesRead, bytesWritten, offset;
     uint16_t streamtype;
     NPError npErr;
+    char *path;
 
     NPStream npstream = {
         .url = req->url,
         .notifyData = req->notifyData,
     };
 
-    char *path = rewrite_url(req->url);
-
+    path = req->url;
     f = fopen(path, "rb");
     if (!f) {
         perror(path);
