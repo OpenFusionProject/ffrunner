@@ -13,6 +13,7 @@
 #include "npapi/npruntime.h"
 #include "npapi/nptypes.h"
 
+#define LOG_FILE_PATH "ffrunner.log"
 #define USERAGENT "ffrunner"
 #define CLASS_NAME "FFWINDOW"
 #define REQUEST_BUFFER_SIZE 0x8000
@@ -43,3 +44,6 @@ void init_network(void);
 
 HWND prepare_window(void);
 void message_loop(void);
+
+void init_logging(const char *logPath);
+void log(const char *fmt, ...);

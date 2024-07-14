@@ -82,9 +82,9 @@ file_handler(Request *req, char *mimeType, NPReason *res)
     /* seek back to start */
     rewind(f);
 
-    printf("> NPP_NewStream %s\n", req->url);
+    log("> NPP_NewStream %s\n", req->url);
     npErr = pluginFuncs.newstream(&npp, mimeType, &npstream, 0, &streamtype);
-    printf("returned %d\n", npErr);
+    log("returned %d\n", npErr);
     if (npErr != NPERR_NO_ERROR) {
         goto failWithOpenFile;
     }
@@ -105,7 +105,7 @@ file_handler(Request *req, char *mimeType, NPReason *res)
                 goto failInStream;
             }
             if (feof(f))
-                printf("IS EOF\n");
+                log("IS EOF\n");
         }
 
         /* Do not write empty buffers. */
@@ -119,9 +119,9 @@ file_handler(Request *req, char *mimeType, NPReason *res)
         }
     }
 
-    printf("* done processing file of size %d\n", offset);
+    log("* done processing file of size %d\n", offset);
 
-    printf("NPP_DestroyStream %s\n", path);
+    log("NPP_DestroyStream %s\n", path);
     pluginFuncs.destroystream(&npp, &npstream, NPRES_DONE);
 
     fclose(f);
@@ -130,7 +130,7 @@ file_handler(Request *req, char *mimeType, NPReason *res)
     return;
 
 failInStream:
-    printf("NPP_DestroyStream FAIL %s\n", path);
+    log("NPP_DestroyStream FAIL %s\n", path);
     pluginFuncs.destroystream(&npp, &npstream, NPRES_NETWORK_ERR);
 
 failWithOpenFile:
@@ -173,7 +173,7 @@ http_handler(Request *req, char *mimeType, NPReason *res)
 
     connHandle = InternetConnectA(hinternet, hostname, urlComponents.nPort, NULL, NULL, INTERNET_SERVICE_HTTP, 0, 0);
     if (!connHandle) {
-        printf("Failed internetconnect: %d\n", GetLastError());
+        log("Failed internetconnect: %d\n", GetLastError());
         goto failEarly;
     }
 
@@ -184,10 +184,10 @@ http_handler(Request *req, char *mimeType, NPReason *res)
     if (urlComponents.nScheme == INTERNET_SCHEME_HTTPS) {
         flags |= INTERNET_FLAG_SECURE;
     }
-    printf("Verb: %s\nHost: %s\nPort: %d\nObject: %s\n", verb, hostname, urlComponents.nPort, filepath);
+    log("Verb: %s\nHost: %s\nPort: %d\nObject: %s\n", verb, hostname, urlComponents.nPort, filepath);
     reqHandle = HttpOpenRequestA(connHandle, verb, filepath, NULL, NULL, acceptedTypes, flags, 0);
     if (!reqHandle) {
-        printf("Failed httpopen: %d\n", GetLastError());
+        log("Failed httpopen: %d\n", GetLastError());
         goto failWithConnHandle;
     }
 
@@ -202,7 +202,7 @@ http_handler(Request *req, char *mimeType, NPReason *res)
         payloadSz = req->postDataLen - headersSz;
     }
     if (!HttpSendRequestA(reqHandle, headers, headersSz, payload, payloadSz)) {
-        printf("Failed httpsend: %d\n", GetLastError());
+        log("Failed httpsend: %d\n", GetLastError());
         goto failWithReqHandle;
     }
 
@@ -212,14 +212,14 @@ http_handler(Request *req, char *mimeType, NPReason *res)
     lenlen = sizeof(lengthHint);
     if (!HttpQueryInfoA(reqHandle, HTTP_QUERY_FLAG_NUMBER|HTTP_QUERY_CONTENT_LENGTH, &lengthHint, &lenlen, 0)
         && GetLastError() != ERROR_HTTP_HEADER_NOT_FOUND) {
-        printf("Failed httpquery: %d\n", GetLastError());
+        log("Failed httpquery: %d\n", GetLastError());
         goto failWithReqHandle;
     }
     npstream.end = lengthHint;
 
-    printf("> NPP_NewStream %s\n", req->url);
+    log("> NPP_NewStream %s\n", req->url);
     npErr = pluginFuncs.newstream(&npp, mimeType, &npstream, 0, &streamtype);
-    printf("returned %d\n", npErr);
+    log("returned %d\n", npErr);
     if (npErr != NPERR_NO_ERROR) {
         goto failWithReqHandle;
     }
@@ -249,9 +249,9 @@ http_handler(Request *req, char *mimeType, NPReason *res)
         }
     }
 
-    printf("* done processing file of size %d\n", offset);
+    log("* done processing file of size %d\n", offset);
 
-    printf("NPP_DestroyStream %s\n", req->url);
+    log("NPP_DestroyStream %s\n", req->url);
     pluginFuncs.destroystream(&npp, &npstream, NPRES_DONE);
 
     InternetCloseHandle(reqHandle);
@@ -261,7 +261,7 @@ http_handler(Request *req, char *mimeType, NPReason *res)
     return;
 
 failInStream:
-    printf("NPP_DestroyStream FAIL %s\n", req->url);
+    log("NPP_DestroyStream FAIL %s\n", req->url);
     pluginFuncs.destroystream(&npp, &npstream, NPRES_NETWORK_ERR);
 
 failWithReqHandle:
@@ -325,7 +325,7 @@ handle_requests(void)
             http_handler(req, mimeType, &res);
 
         if (req->doNotify) {
-            printf("> NPP_URLNotify %d %s\n", res, req->url);
+            log("> NPP_URLNotify %d %s\n", res, req->url);
             pluginFuncs.urlnotify(&npp, req->url, res, req->notifyData);
         }
     }

@@ -1,9 +1,11 @@
 *.exe
 *.dll
 *.res
+*.log
 assets/
 mono/
 player/
 out/
 build/
+.vscode/
 *-swp

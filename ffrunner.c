@@ -43,7 +43,7 @@ getNPIdentifier(const char *s)
 NPError
 NPN_GetURLProc(NPP instance, const char* url, const char* window)
 {
-    printf("< NPN_GetURLProc:%p, url: %s, window: %s\n", instance, url, window);
+    log("< NPN_GetURLProc:%p, url: %s, window: %s\n", instance, url, window);
 
     register_get_request(url, false, NULL);
 
@@ -53,7 +53,7 @@ NPN_GetURLProc(NPP instance, const char* url, const char* window)
 NPError
 NPN_GetURLNotifyProc(NPP instance, const char* url, const char* window, void* notifyData)
 {
-    printf("< NPN_GetURLNotifyProc:%p, url: %s, window: %s, notifyData: %p\n", instance, url, window, notifyData);
+    log("< NPN_GetURLNotifyProc:%p, url: %s, window: %s, notifyData: %p\n", instance, url, window, notifyData);
 
     register_get_request(url, true, notifyData);
 
@@ -63,7 +63,7 @@ NPN_GetURLNotifyProc(NPP instance, const char* url, const char* window, void* no
 NPError
 NPN_PostURLProc(NPP instance, const char* url, const char* window, uint32_t len, const char* buf, NPBool file)
 {
-    printf("< NPN_PostURLProc:%p, url: %s, window: %s, len: %d, buf: %s, file: %d\n",
+    log("< NPN_PostURLProc:%p, url: %s, window: %s, len: %d, buf: %s, file: %d\n",
             instance, url, window, len, buf, file);
 
     register_post_request(url, false, NULL, len, buf);
@@ -74,7 +74,7 @@ NPN_PostURLProc(NPP instance, const char* url, const char* window, uint32_t len,
 NPError
 NPN_PostURLNotifyProc(NPP instance, const char* url, const char* window, uint32_t len, const char* buf, NPBool file, void* notifyData)
 {
-    printf("< NPN_PostURLNotifyProc:%p, url: %s, window: %s, len: %d, buf: %s, file: %d, notifyData: %p\n",
+    log("< NPN_PostURLNotifyProc:%p, url: %s, window: %s, len: %d, buf: %s, file: %d, notifyData: %p\n",
             instance, url, window, len, buf, file, notifyData);
 
     register_post_request(url, true, notifyData, len, buf);
@@ -85,28 +85,28 @@ NPN_PostURLNotifyProc(NPP instance, const char* url, const char* window, uint32_
 const char *
 NPN_UserAgentProc(NPP instance)
 {
-    printf("< NPN_UserAgentProc, NPP:%p\n", instance);
+    log("< NPN_UserAgentProc, NPP:%p\n", instance);
     return USERAGENT;
 }
 
 bool
 NPN_GetPropertyProc(NPP npp, NPObject *obj, NPIdentifier propertyName, NPVariant *result)
 {
-    printf("< NPN_GetPropertyProc\n");
+    log("< NPN_GetPropertyProc\n");
     return false;
 }
 
 bool
 NPN_InvokeProc(NPP npp, NPObject* obj, NPIdentifier methodName, const NPVariant *args, uint32_t argCount, NPVariant *result)
 {
-    printf("< NPN_InvokeProc:%p, obj: %p, methodName: %p, argCount:%d\n", npp, obj, methodName, argCount);
+    log("< NPN_InvokeProc:%p, obj: %p, methodName: %p, argCount:%d\n", npp, obj, methodName, argCount);
     return false;
 }
 
 void
 NPN_ReleaseVariantValueProc(NPVariant *variant)
 {
-    printf("< NPN_ReleaseVariantValueProc\n");
+    log("< NPN_ReleaseVariantValueProc\n");
 }
 
 NPObject *
@@ -114,7 +114,7 @@ NPN_CreateObjectProc(NPP npp, NPClass *aClass)
 {
     NPObject *npobj;
 
-    printf("< NPN_CreateObjectProc\n");
+    log("< NPN_CreateObjectProc\n");
     assert(aClass);
 
     if (aClass->allocate)
@@ -133,7 +133,7 @@ NPN_CreateObjectProc(NPP npp, NPClass *aClass)
 NPObject *
 NPN_RetainObjectProc(NPObject *obj)
 {
-    printf("< NPN_RetainObjectProc\n");
+    log("< NPN_RetainObjectProc\n");
     assert(obj);
     obj->referenceCount++;
     return obj;
@@ -142,7 +142,7 @@ NPN_RetainObjectProc(NPObject *obj)
 void
 NPN_ReleaseObjectProc(NPObject *obj)
 {
-    printf("< NPN_ReleaseObjectProc\n");
+    log("< NPN_ReleaseObjectProc\n");
     assert(obj);
 
     obj->referenceCount--;
@@ -163,7 +163,7 @@ NPN_GetValueProc(NPP instance, NPNVariable variable, void *ret_value)
 {
     NPObject **retPtr;
 
-    printf("< NPN_GetValueProc %d\n", variable);
+    log("< NPN_GetValueProc %d\n", variable);
 
     browserObject.referenceCount++;
 
@@ -179,7 +179,7 @@ NPN_GetValueProc(NPP instance, NPNVariable variable, void *ret_value)
 bool
 NPN_EvaluateProc(NPP npp, NPObject *obj, NPString *script, NPVariant *result)
 {
-    printf("< NPN_EvaluateProc %s\n", script->UTF8Characters);
+    log("< NPN_EvaluateProc %s\n", script->UTF8Characters);
 
     /* Evaluates JS calls, like MarkProgress(1), most of which doesn't need to do anything. */
     if (strncmp(script->UTF8Characters, EXIT_CALLBACK_SCRIPT, sizeof(EXIT_CALLBACK_SCRIPT)) == 0) {
@@ -197,7 +197,7 @@ NPN_EvaluateProc(NPP npp, NPObject *obj, NPString *script, NPVariant *result)
 NPIdentifier
 NPN_GetStringIdentifierProc(const NPUTF8* name)
 {
-    printf("< NPN_GetStringIdentifierProc %s\n", name);
+    log("< NPN_GetStringIdentifierProc %s\n", name);
 
     return getNPIdentifier(name);
 }
@@ -207,7 +207,7 @@ NPN_GetStringIdentifiersProc(const NPUTF8** names, int32_t nameCount, NPIdentifi
 {
     int i;
 
-    printf("< NPN_GetStringIdentifiersProc %d\n", nameCount);
+    log("< NPN_GetStringIdentifiersProc %d\n", nameCount);
 
     for (i = 0; i < nameCount; i++) {
         identifiers[i] = getNPIdentifier(names[i]);
@@ -223,7 +223,7 @@ NPAllocateFunction(NPP instance, NPClass *aClass)
 {
     NPObject *npobj;
 
-    printf("< NPAllocateFunction %p\n", aClass);
+    log("< NPAllocateFunction %p\n", aClass);
     assert(aClass);
 
     if (aClass->allocate)
@@ -242,7 +242,7 @@ NPAllocateFunction(NPP instance, NPClass *aClass)
 void
 NPDeallocateFunction(NPObject *npobj)
 {
-    printf("< NPDeallocateFunction %p\n", npobj);
+    log("< NPDeallocateFunction %p\n", npobj);
     assert(npobj != &browserObject);
 
     free(npobj);
@@ -251,13 +251,13 @@ NPDeallocateFunction(NPObject *npobj)
 void
 NPInvalidateFunction(NPObject *npobj)
 {
-    printf("< NPInvalidateFunction %p\n", npobj);
+    log("< NPInvalidateFunction %p\n", npobj);
 }
 
 bool
 NPHasMethodFunction(NPObject *npobj, NPIdentifier name)
 {
-    printf("< NPHasMethodFunction %p %p\n", npobj, name);
+    log("< NPHasMethodFunction %p %p\n", npobj, name);
 
     return 0;
 }
@@ -265,7 +265,7 @@ NPHasMethodFunction(NPObject *npobj, NPIdentifier name)
 bool
 NPInvokeFunction(NPObject *npobj, NPIdentifier name, const NPVariant *args, uint32_t argCount, NPVariant *result)
 {
-    printf("< NPInvokeFunction %p %p\n", npobj, name);
+    log("< NPInvokeFunction %p %p\n", npobj, name);
 
     return 0;
 }
@@ -273,7 +273,7 @@ NPInvokeFunction(NPObject *npobj, NPIdentifier name, const NPVariant *args, uint
 bool
 NPInvokeDefaultFunction(NPObject *npobj, const NPVariant *args, uint32_t argCount, NPVariant *result)
 {
-    printf("< NPInvokeDefaultFunction %p\n", npobj);
+    log("< NPInvokeDefaultFunction %p\n", npobj);
 
     return 0;
 }
@@ -281,7 +281,7 @@ NPInvokeDefaultFunction(NPObject *npobj, const NPVariant *args, uint32_t argCoun
 bool
 NPHasPropertyFunction(NPObject *npobj, NPIdentifier name)
 {
-    printf("< NPHasPropertyFunction %p\n", npobj);
+    log("< NPHasPropertyFunction %p\n", npobj);
 
     return 0;
 }
@@ -289,7 +289,7 @@ NPHasPropertyFunction(NPObject *npobj, NPIdentifier name)
 bool
 NPGetPropertyFunction(NPObject *npobj, NPIdentifier name, NPVariant *result)
 {
-    printf("< NPGetPropertyFunction %p\n", npobj);
+    log("< NPGetPropertyFunction %p\n", npobj);
 
     return 0;
 }
@@ -297,7 +297,7 @@ NPGetPropertyFunction(NPObject *npobj, NPIdentifier name, NPVariant *result)
 bool
 NPSetPropertyFunction(NPObject *npobj, NPIdentifier name, const NPVariant *value)
 {
-    printf("< NPSetPropertyFunction %p\n", npobj);
+    log("< NPSetPropertyFunction %p\n", npobj);
 
     return 0;
 }
@@ -305,7 +305,7 @@ NPSetPropertyFunction(NPObject *npobj, NPIdentifier name, const NPVariant *value
 bool
 NPRemovePropertyFunction(NPObject *npobj, NPIdentifier name)
 {
-    printf("< NPRemovePropertyFunction %p\n", npobj);
+    log("< NPRemovePropertyFunction %p\n", npobj);
 
     return 0;
 }
@@ -313,7 +313,7 @@ NPRemovePropertyFunction(NPObject *npobj, NPIdentifier name)
 bool
 NPEnumerationFunction(NPObject *npobj, NPIdentifier **value, uint32_t *count)
 {
-    printf("< NPEnumerationFunction %p\n", npobj);
+    log("< NPEnumerationFunction %p\n", npobj);
 
     return 0;
 }
@@ -321,7 +321,7 @@ NPEnumerationFunction(NPObject *npobj, NPIdentifier **value, uint32_t *count)
 bool
 NPConstructFunction(NPObject *npobj, const NPVariant *args, uint32_t argCount, NPVariant *result)
 {
-    printf("< NPConstructFunction %p\n", npobj);
+    log("< NPConstructFunction %p\n", npobj);
 
     return 0;
 }
@@ -380,8 +380,10 @@ main(void)
     HWND hwnd;
     RECT winRect;
 
+    init_logging(LOG_FILE_PATH);
+
     if (GetCurrentDirectory(MAX_PATH, cwd)) {
-        printf("setenv(\"%s\")\n", cwd);
+        log("setenv(\"%s\")\n", cwd);
         SetEnvironmentVariable("UNITY_HOME_DIR", cwd);
     }
     SetEnvironmentVariable("UNITY_DISABLE_PLUGIN_UPDATES", "yes");
@@ -389,33 +391,33 @@ main(void)
     initNetscapeFuncs();
     initBrowserObject();
 
-    printf("LoadLibraryA\n");
+    log("LoadLibraryA\n");
     loader = LoadLibraryA("npUnity3D32.dll");
     if (!loader) {
         err = GetLastError();
-        printf("Failed to load plugin DLL: 0x%x\n", err);
+        log("Failed to load plugin DLL: 0x%x\n", err);
         exit(1);
     }
 
-    printf("GetProcAddress\n");
+    log("GetProcAddress\n");
     NP_GetEntryPointsFuncOS NP_GetEntryPoints = (NP_GetEntryPointsFuncOS)GetProcAddress(loader, "NP_GetEntryPoints");
     NP_InitializeFuncOS NP_Initialize = (NP_InitializeFuncOS)GetProcAddress(loader, "NP_Initialize");
     NP_ShutdownFuncOS NP_Shutdown = (NP_ShutdownFuncOS)GetProcAddress(loader, "NP_Shutdown");
 
     if (!NP_GetEntryPoints || !NP_Initialize || !NP_Shutdown) {
-        printf("Failed to find one or more plugin symbols. Invalid plugin DLL?\n");
+        log("Failed to find one or more plugin symbols. Invalid plugin DLL?\n");
         exit(1);
     }
 
     init_network();
 
-    printf("> NP_GetEntryPoints\n");
+    log("> NP_GetEntryPoints\n");
     ret = NP_GetEntryPoints(&pluginFuncs);
-    printf("returned %d\n", ret);
+    log("returned %d\n", ret);
 
-    printf("> NP_Initialize\n");
+    log("> NP_Initialize\n");
     ret = NP_Initialize(&netscapeFuncs);
-    printf("returned %d\n", ret);
+    log("returned %d\n", ret);
 
     char *argn[] = {
         "src",
@@ -443,9 +445,9 @@ main(void)
     };
     assert(ARRLEN(argn) == ARRLEN(argv));
 
-    printf("> NPP_NewProc\n");
+    log("> NPP_NewProc\n");
     ret = pluginFuncs.newp("application/vnd.ffuwp", &npp, 1, ARRLEN(argn), argn, argv, &saved);
-    printf("returned %d\n", ret);
+    log("returned %d\n", ret);
 
     hwnd = prepare_window();
     assert(hwnd);
@@ -471,19 +473,19 @@ main(void)
         npWin.width = winRect.right - winRect.left;
     }
 
-    printf("> NPP_SetWindowProc\n");
+    log("> NPP_SetWindowProc\n");
     ret = pluginFuncs.setwindow(&npp, &npWin);
-    printf("returned %d\n", ret);
+    log("returned %d\n", ret);
 
 
-    printf("> NPP_GetValueProc\n");
+    log("> NPP_GetValueProc\n");
     ret = pluginFuncs.getvalue(&npp, NPPVpluginScriptableNPObject, &scriptableObject);
-    printf("returned %d and NPObject %p\n", ret, scriptableObject);
+    log("returned %d and NPObject %p\n", ret, scriptableObject);
     assert(scriptableObject->_class);
 
-    printf("> scriptableObject.hasMethod style\n");
+    log("> scriptableObject.hasMethod style\n");
     ret = scriptableObject->_class->hasMethod(scriptableObject, getNPIdentifier("style"));
-    printf("returned %d\n", ret);
+    log("returned %d\n", ret);
 
     handle_requests();
 
