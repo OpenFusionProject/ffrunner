@@ -2,6 +2,12 @@
 
 #include <stdio.h>
 
+#ifdef DEBUG
+    #define DEBUG_LOG(fmt, ...) log(fmt, __VA_ARGS__)
+#else
+    #define DEBUG_LOG(fmt, ...) ;
+#endif
+
 PTP_POOL threadpool;
 HINTERNET hInternet;
 UINT ioMsg;
@@ -101,16 +107,16 @@ handle_io_progress(Request *req)
 
     if (req->stream && req->writeSize > 0) {
         /* streaming in progress AND data available */
-        log("> NPP_WriteReady %s\n", req->url);
+        DEBUG_LOG("> NPP_WriteReady %s\n", req->url);
         writeSize = pluginFuncs.writeready(&npp, req->stream);
-        log("returned %d\n", writeSize);
+        DEBUG_LOG("returned %d\n", writeSize);
         writeSize = MIN(writeSize, req->writeSize);
         
-        log("> NPP_Write %s %d %p\n", req->url, writeSize, req->writePtr);
+        DEBUG_LOG("> NPP_Write %s %d %p\n", req->url, writeSize, req->writePtr);
         dataPtr = req->buf + req->writePtr;
         bytesConsumed = pluginFuncs.write(&npp, req->stream, req->bytesWritten, writeSize, dataPtr);
         if (bytesConsumed < 0) {
-            log("error %d\n", bytesConsumed);
+            log("write error %d\n", bytesConsumed);
             cancel_request(req);
         } else {
             req->bytesWritten += bytesConsumed;
@@ -123,8 +129,8 @@ handle_io_progress(Request *req)
         if (req->stream) {
             log("> NPP_DestroyStream %s %d\n", req->url, req->doneReason);
             err = pluginFuncs.destroystream(&npp, req->stream, req->doneReason);
-            log("returned %d\n", err);
             if (err != NPERR_NO_ERROR) {
+                log("destroystream error %d\n", err);
                 return false;
             }
             free(req->stream);
