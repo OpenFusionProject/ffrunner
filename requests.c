@@ -319,7 +319,7 @@ progress_request(Request *req)
         req->done = true;
         break;
     case REQ_SRC_HTTP:
-        if (!InternetReadFile(req->handles.http.hReq, req->buf, HTTP_CHUNK_SIZE, &req->writeSize)) {
+        if (!InternetReadFile(req->handles.http.hReq, req->buf, REQUEST_BUFFER_SIZE, &req->writeSize)) {
             cancel_request(req);
         } else if (req->writeSize == 0) {
             /* EOF */

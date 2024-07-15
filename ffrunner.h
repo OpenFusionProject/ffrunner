@@ -18,8 +18,7 @@
 #define USERAGENT "ffrunner"
 #define CLASS_NAME "FFWINDOW"
 #define IO_MSG_NAME "FFRunnerIoReady"
-#define REQUEST_BUFFER_SIZE 0x4000
-#define HTTP_CHUNK_SIZE 0x2000
+#define REQUEST_BUFFER_SIZE 0x10000
 #define POST_DATA_SIZE 0x1000
 #define MAX_URL_LENGTH 256
 #define WIDTH 1280
