@@ -60,18 +60,18 @@ void
 message_loop(void)
 {
     Request *req;
-    bool resubmit;
+    bool done;
     MSG msg = {0};
 
     while (GetMessage(&msg, NULL, 0, 0) > 0)
     {
         if (msg.message == ioMsg) {
             req = (Request*)msg.lParam;
-            resubmit = handle_io_progress(req);
-            if (resubmit) {
-                submit_request(req);
-            } else {
+            done = handle_io_progress(req);
+            if (done) {
                 free(req);
+            } else {
+                SetEvent(req->readyEvent);
             }
         } else {
             TranslateMessage(&msg);

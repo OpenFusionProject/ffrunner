@@ -74,7 +74,6 @@ on_load_ready()
 
 void cancel_request(Request *req)
 {
-    req->writePtr = 0;
     req->writeSize = 0;
     req->doneReason = NPRES_NETWORK_ERR;
     req->done = true;
@@ -110,28 +109,32 @@ handle_io_progress(Request *req)
         DEBUG_LOG("> NPP_WriteReady %s\n", req->url);
         writeSize = pluginFuncs.writeready(&npp, req->stream);
         DEBUG_LOG("returned %d\n", writeSize);
-        writeSize = MIN(writeSize, req->writeSize);
+
+        /* we really should never get throttled by the web player */
+        assert(req->writeSize <= writeSize);
+        writeSize = req-> writeSize;
         
         DEBUG_LOG("> NPP_Write %s %d %p\n", req->url, writeSize, req->writePtr);
-        dataPtr = req->buf + req->writePtr;
+        dataPtr = req->buf;
         bytesConsumed = pluginFuncs.write(&npp, req->stream, req->bytesWritten, writeSize, dataPtr);
         if (bytesConsumed < 0) {
             log("write error %d\n", bytesConsumed);
             cancel_request(req);
+        } else if ((uint32_t)bytesConsumed < writeSize) {
+            log("not enough bytes consumed %d < %d\n", bytesConsumed, writeSize);
+            cancel_request(req);
         } else {
             req->bytesWritten += bytesConsumed;
-            req->writePtr += bytesConsumed;
         }
     }
 
-    if (req->done && req->writePtr == req->writeSize) {
-        /* request is cancelled, or complete and all available data has been consumed */
+    if (req->failed || req->done) {
+        /* request is cancelled or complete */
         if (req->stream) {
             log("> NPP_DestroyStream %s %d\n", req->url, req->doneReason);
             err = pluginFuncs.destroystream(&npp, req->stream, req->doneReason);
             if (err != NPERR_NO_ERROR) {
                 log("destroystream error %d\n", err);
-                return false;
             }
             free(req->stream);
         }
@@ -161,13 +164,13 @@ handle_io_progress(Request *req)
             mainLoaded = true;
         }
 
-        return false;
+        return true;
     }
 
-    return true;
+    return false;
 }
 
-bool
+void
 init_request_file(Request *req)
 {
     DWORD fileSize;
@@ -188,14 +191,13 @@ init_request_file(Request *req)
         req->sizeHint = fileSize;
     }
 
-    return true;
+    return;
 
 fail:
     cancel_request(req);
-    return false;
 }
 
-bool
+void
 init_request_http(Request *req, char *hostname, char *filePath, LPURL_COMPONENTSA urlComponents)
 {
     DWORD lenlen;
@@ -267,14 +269,13 @@ init_request_http(Request *req, char *hostname, char *filePath, LPURL_COMPONENTS
         req->sizeHint = 0;
     }
 
-    return true;
+    return;
 
 fail:
     cancel_request(req);
-    return false;
 }
 
-bool
+void
 init_request(Request *req)
 {
     URL_COMPONENTSA urlComponents;
@@ -313,12 +314,6 @@ progress_request(Request *req)
 {
     assert(req->source != REQ_SRC_UNSET);
 
-    if (req->writePtr < req->writeSize) {
-        /* waiting for plugin to consume all data */
-        return;
-    }
-
-    req->writePtr = 0;
     switch (req->source)
     {
     case REQ_SRC_FILE:
@@ -346,85 +341,75 @@ progress_request(Request *req)
 
 VOID
 CALLBACK
-step_request(PTP_CALLBACK_INSTANCE inst, Request *req, PTP_WORK work)
+handle_request(PTP_CALLBACK_INSTANCE inst, Request *req, PTP_WORK work)
 {
-    bool running;
-
-    running = true;
-    if (req->source == REQ_SRC_UNSET) {
-        running = init_request(req);
+    while (!req->done) {
+        if (req->source == REQ_SRC_UNSET) {
+            init_request(req);
+        }
+        if (!req->failed) {
+            progress_request(req);
+        }
+        PostThreadMessage(mainThreadId, ioMsg, (WPARAM)NULL, (LPARAM)req);
+        WaitForSingleObject(req->readyEvent, INFINITE);
     }
-    if (running) {
-        progress_request(req);
-    }
-    PostThreadMessage(mainThreadId, ioMsg, (WPARAM)NULL, (LPARAM)req);
 }
 
 void
 submit_request(Request *req)
 {
-    assert(req->work);
-    SubmitThreadpoolWork(req->work);
+    PTP_WORK work;
+
+    req->readyEvent = CreateEventA(NULL, false, false, NULL);
+    assert(req->readyEvent);
+
+    work = CreateThreadpoolWork(handle_request, req, NULL);
+    assert(work);
+
+    SubmitThreadpoolWork(work);
+    nRequests++;
 }
 
 void
 register_get_request(const char *url, bool doNotify, void *notifyData)
 {
     Request *req;
-    PTP_WORK work;
 
     assert(strlen(url) < MAX_URL_LENGTH);
 
     req = (Request*)malloc(sizeof(Request));
-    work = CreateThreadpoolWork(step_request, req, NULL);
-    if (!work) {
-        log("Failed to create threadpool work for %s: %d\n", url, GetLastError());
-        free(req);
-        exit(1);
-    }
 
     *req = (Request){
         .notifyData = notifyData,
         .doNotify = doNotify,
         .isPost = false,
-        .postDataLen = 0,
-        .work = work
+        .postDataLen = 0
     };
     strncpy(req->url, url, MAX_URL_LENGTH);
 
     submit_request(req);
-    nRequests++;
 }
 
 void
 register_post_request(const char *url, bool doNotify, void *notifyData, uint32_t postDataLen, const char *postData)
 {
     Request *req;
-    PTP_WORK work;
 
     assert(strlen(url) < MAX_URL_LENGTH);
     assert(postDataLen < POST_DATA_SIZE);
 
     req = (Request*)malloc(sizeof(Request));
-    work = CreateThreadpoolWork(step_request, req, NULL);
-    if (!work) {
-        log("Failed to create threadpool work for %s: %d\n", url, GetLastError());
-        free(req);
-        exit(1);
-    }
 
     *req = (Request){
         .notifyData = notifyData,
         .doNotify = doNotify,
         .isPost = true,
-        .postDataLen = postDataLen,
-        .work = work
+        .postDataLen = postDataLen
     };
     strncpy(req->url, url, MAX_URL_LENGTH);
     memcpy(req->postData, postData, postDataLen);
     
     submit_request(req);
-    nRequests++;
 }
 
 void

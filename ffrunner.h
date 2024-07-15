@@ -55,15 +55,14 @@ typedef struct _Request {
     bool isPost;
     uint32_t postDataLen;
     char postData[POST_DATA_SIZE];
-    PTP_WORK work;
     /* state */
+    HANDLE readyEvent;
     char *mimeType;
     RequestSource source;
     NPStream *stream;
     uint16_t streamType;
     size_t sizeHint;
     size_t writeSize;
-    size_t writePtr;
     uint32_t bytesWritten;
     uint8_t buf[REQUEST_BUFFER_SIZE];
     bool done;
