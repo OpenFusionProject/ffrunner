@@ -330,7 +330,7 @@ progress_request(Request *req)
         req->done = true;
         break;
     case REQ_SRC_HTTP:
-        if (!InternetReadFile(req->handles.http.hReq, req->buf, REQUEST_BUFFER_SIZE, &req->writeSize)) {
+        if (!InternetReadFile(req->handles.http.hReq, req->buf, HTTP_CHUNK_SIZE, &req->writeSize)) {
             cancel_request(req);
         } else if (req->writeSize == 0) {
             /* EOF */
@@ -403,6 +403,7 @@ register_post_request(const char *url, bool doNotify, void *notifyData, uint32_t
     PTP_WORK work;
 
     assert(strlen(url) < MAX_URL_LENGTH);
+    assert(postDataLen < POST_DATA_SIZE);
 
     req = (Request*)malloc(sizeof(Request));
     work = CreateThreadpoolWork(step_request, req, NULL);

@@ -18,7 +18,9 @@
 #define USERAGENT "ffrunner"
 #define CLASS_NAME "FFWINDOW"
 #define IO_MSG_NAME "FFRunnerIoReady"
-#define REQUEST_BUFFER_SIZE 0x8000
+#define REQUEST_BUFFER_SIZE 0x4000
+#define HTTP_CHUNK_SIZE 0x2000
+#define POST_DATA_SIZE 0x1000
 #define MAX_URL_LENGTH 256
 #define WIDTH 1280
 #define HEIGHT 720
@@ -52,7 +54,7 @@ typedef struct _Request {
     char url[MAX_URL_LENGTH];
     bool isPost;
     uint32_t postDataLen;
-    char postData[REQUEST_BUFFER_SIZE];
+    char postData[POST_DATA_SIZE];
     PTP_WORK work;
     /* state */
     char *mimeType;
