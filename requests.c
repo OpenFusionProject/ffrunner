@@ -108,7 +108,7 @@ handle_io_progress(Request *req)
         /* streaming in progress AND data available */
         writeSize = req-> writeSize;
 
-        DEBUG_LOG("> NPP_Write %s %d %p\n", req->url, writeSize, req->writePtr);
+        DEBUG_LOG("> NPP_Write %s %d\n", req->url, writeSize);
         dataPtr = req->buf;
         bytesConsumed = pluginFuncs.write(&npp, req->stream, req->bytesWritten, writeSize, dataPtr);
         if (bytesConsumed < 0) {
