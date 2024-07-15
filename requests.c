@@ -72,6 +72,7 @@ void cancel_request(Request *req)
     req->writeSize = 0;
     req->doneReason = NPRES_NETWORK_ERR;
     req->done = true;
+    req->failed = true;
 }
 
 bool
@@ -84,7 +85,7 @@ handle_io_progress(Request *req)
 
     assert(req->source != REQ_SRC_UNSET);
 
-    if (req->stream == NULL) {
+    if (req->stream == NULL && !req->failed) {
         /* start streaming */
         req->stream = (NPStream*)malloc(sizeof(NPStream));
         req->stream->url = req->url;
@@ -98,7 +99,7 @@ handle_io_progress(Request *req)
         }
     }
 
-    if (req->writeSize > 0) {
+    if (req->stream && req->writeSize > 0) {
         /* streaming in progress AND data available */
         log("> NPP_WriteReady %s\n", req->url);
         writeSize = pluginFuncs.writeready(&npp, req->stream);

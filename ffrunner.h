@@ -66,6 +66,7 @@ typedef struct _Request {
     uint8_t buf[REQUEST_BUFFER_SIZE];
     bool done;
     NPReason doneReason;
+    bool failed;
     union {
         HANDLE hFile;
         struct _NetHandles {
