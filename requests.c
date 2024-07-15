@@ -342,17 +342,24 @@ void
 register_get_request(const char *url, bool doNotify, void *notifyData)
 {
     Request *req;
+    PTP_WORK work;
 
     assert(strlen(url) < MAX_URL_LENGTH);
 
     req = (Request*)malloc(sizeof(Request));
+    work = CreateThreadpoolWork(step_request, req, NULL);
+    if (!work) {
+        log("Failed to create threadpool work for %s: %d\n", url, GetLastError());
+        free(req);
+        exit(1);
+    }
 
     *req = (Request){
         .notifyData = notifyData,
         .doNotify = doNotify,
         .isPost = false,
         .postDataLen = 0,
-        .work = CreateThreadpoolWork(step_request, req, NULL)
+        .work = work
     };
     strncpy(req->url, url, MAX_URL_LENGTH);
 
@@ -364,17 +371,23 @@ void
 register_post_request(const char *url, bool doNotify, void *notifyData, uint32_t postDataLen, const char *postData)
 {
     Request *req;
+    PTP_WORK work;
 
     assert(strlen(url) < MAX_URL_LENGTH);
 
     req = (Request*)malloc(sizeof(Request));
+    if (!work) {
+        log("Failed to create threadpool work for %s: %d\n", url, GetLastError());
+        free(req);
+        exit(1);
+    }
 
     *req = (Request){
         .notifyData = notifyData,
         .doNotify = doNotify,
         .isPost = true,
         .postDataLen = postDataLen,
-        .work = CreateThreadpoolWork(step_request, req, NULL)
+        .work = work
     };
     strncpy(req->url, url, MAX_URL_LENGTH);
     memcpy(req->postData, postData, postDataLen);

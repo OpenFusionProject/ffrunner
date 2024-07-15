@@ -421,6 +421,9 @@ main(int argc, char **argv)
         exit(1);
     }
 
+    hwnd = prepare_window();
+    assert(hwnd);
+
     init_network(srcUrl);
 
     log("> NP_GetEntryPoints\n");
@@ -461,8 +464,8 @@ main(int argc, char **argv)
     ret = pluginFuncs.newp("application/vnd.ffuwp", &npp, 1, ARRLEN(argn), argn, argp, &saved);
     log("returned %d\n", ret);
 
-    hwnd = prepare_window();
-    assert(hwnd);
+    ShowWindow(hwnd, SW_SHOWDEFAULT);
+    UpdateWindow(hwnd);
 
     npWin = (NPWindow){
         .window = hwnd,
