@@ -399,6 +399,7 @@ register_post_request(const char *url, bool doNotify, void *notifyData, uint32_t
     assert(strlen(url) < MAX_URL_LENGTH);
 
     req = (Request*)malloc(sizeof(Request));
+    work = CreateThreadpoolWork(step_request, req, NULL);
     if (!work) {
         log("Failed to create threadpool work for %s: %d\n", url, GetLastError());
         free(req);
