@@ -66,6 +66,14 @@ on_load_ready()
     register_get_request(srcUrl, true, NULL);
 }
 
+void cancel_request(Request *req)
+{
+    req->writePtr = 0;
+    req->writeSize = 0;
+    req->doneReason = NPRES_NETWORK_ERR;
+    req->done = true;
+}
+
 bool
 handle_io_progress(Request *req)
 {
@@ -86,7 +94,7 @@ handle_io_progress(Request *req)
         err = pluginFuncs.newstream(&npp, req->mimeType, req->stream, false, &req->streamType);
         log("returned %d\n", err);
         if (err != NPERR_NO_ERROR) {
-            exit(1);
+            cancel_request(req);
         }
     }
 
@@ -102,9 +110,7 @@ handle_io_progress(Request *req)
         bytesConsumed = pluginFuncs.write(&npp, req->stream, req->bytesWritten, writeSize, dataPtr);
         if (bytesConsumed < 0) {
             log("error %d\n", bytesConsumed);
-            req->writePtr = req->writeSize;
-            req->doneReason = NPRES_NETWORK_ERR;
-            req->done = true;
+            cancel_request(req);
         } else {
             req->bytesWritten += bytesConsumed;
             req->writePtr += bytesConsumed;
@@ -112,15 +118,16 @@ handle_io_progress(Request *req)
     }
 
     if (req->done && req->writePtr == req->writeSize) {
-        /* request is complete and all available data has been consumed */
-        assert(req->stream != NULL);
-        log("> NPP_DestroyStream %s %d\n", req->url, req->doneReason);
-        err = pluginFuncs.destroystream(&npp, req->stream, req->doneReason);
-        log("returned %d\n", err);
-        if (err != NPERR_NO_ERROR) {
-            return false;
+        /* request is cancelled, or complete and all available data has been consumed */
+        if (req->stream) {
+            log("> NPP_DestroyStream %s %d\n", req->url, req->doneReason);
+            err = pluginFuncs.destroystream(&npp, req->stream, req->doneReason);
+            log("returned %d\n", err);
+            if (err != NPERR_NO_ERROR) {
+                return false;
+            }
+            free(req->stream);
         }
-        free(req->stream);
 
         if (req->doNotify) {
             log("> NPP_UrlNotify %s %d %p\n", req->url, req->doneReason, req->notifyData);
@@ -153,7 +160,7 @@ handle_io_progress(Request *req)
     return true;
 }
 
-void
+bool
 init_request_file(Request *req)
 {
     DWORD fileSize;
@@ -174,18 +181,19 @@ init_request_file(Request *req)
         req->sizeHint = fileSize;
     }
 
-    return;
+    return true;
 
 fail:
-    req->doneReason = NPRES_NETWORK_ERR;
-    req->done = true;
+    cancel_request(req);
+    return false;
 }
 
-void
+bool
 init_request_http(Request *req, char *hostname, char *filePath, LPURL_COMPONENTSA urlComponents)
 {
     DWORD lenlen;
     DWORD err;
+    DWORD status;
 
     PCTSTR verb = req->isPost ? "POST" : "GET";
     PCTSTR acceptedTypes[2] = { req->mimeType, NULL };
@@ -229,6 +237,17 @@ init_request_http(Request *req, char *hostname, char *filePath, LPURL_COMPONENTS
         goto fail;
     }
 
+    /* Make sure we don't get a 404 */
+    lenlen = sizeof(status);
+    if (!HttpQueryInfoA(req->handles.http.hReq, HTTP_QUERY_FLAG_NUMBER | HTTP_QUERY_STATUS_CODE, &status, &lenlen, 0)) {
+        log("Failed httpquery (status code): %d\n", GetLastError());
+        goto fail;
+    }
+    if (status != HTTP_STATUS_OK) {
+        log("HTTP not OK (%d)\n", status);
+        goto fail;
+    }
+
     /* Attempt to get the length from the Content-Length header. */
     /* If we don't know the length, the plugin asks for 0. */
     lenlen = sizeof(req->sizeHint);
@@ -241,14 +260,14 @@ init_request_http(Request *req, char *hostname, char *filePath, LPURL_COMPONENTS
         req->sizeHint = 0;
     }
 
-    return;
+    return true;
 
 fail:
-    req->doneReason = NPRES_NETWORK_ERR;
-    req->done = true;
+    cancel_request(req);
+    return false;
 }
 
-void
+bool
 init_request(Request *req)
 {
     URL_COMPONENTSA urlComponents;
@@ -274,11 +293,11 @@ init_request(Request *req)
     if (!InternetCrackUrlA(req->url, strlen(req->url), 0, &urlComponents)) {
         /* local */
         req->source = REQ_SRC_FILE;
-        init_request_file(req);
+        return init_request_file(req);
     } else {
         /* remote */
         req->source = REQ_SRC_HTTP;
-        init_request_http(req, hostname, filePath, &urlComponents);
+        return init_request_http(req, hostname, filePath, &urlComponents);
     }
 }
 
@@ -297,8 +316,7 @@ progress_request(Request *req)
     {
     case REQ_SRC_FILE:
         if (!ReadFile(req->handles.hFile, req->buf, REQUEST_BUFFER_SIZE, &req->writeSize, NULL)) {
-            req->writeSize = 0; /* just in case */
-            req->doneReason = NPRES_NETWORK_ERR;
+            cancel_request(req);
         } else {
             req->doneReason = NPRES_DONE;
         }
@@ -306,8 +324,7 @@ progress_request(Request *req)
         break;
     case REQ_SRC_HTTP:
         if (!InternetReadFile(req->handles.http.hReq, req->buf, REQUEST_BUFFER_SIZE, &req->writeSize)) {
-            req->writeSize = 0; /* just in case */
-            req->doneReason = NPRES_NETWORK_ERR;
+            cancel_request(req);
         } else if (req->writeSize == 0) {
             /* EOF */
             req->done = true;
@@ -324,10 +341,15 @@ VOID
 CALLBACK
 step_request(PTP_CALLBACK_INSTANCE inst, Request *req, PTP_WORK work)
 {
+    bool running;
+
+    running = true;
     if (req->source == REQ_SRC_UNSET) {
-        init_request(req);
+        running = init_request(req);
     }
-    progress_request(req);
+    if (running) {
+        progress_request(req);
+    }
     PostThreadMessage(mainThreadId, ioMsg, (WPARAM)NULL, (LPARAM)req);
 }
 
