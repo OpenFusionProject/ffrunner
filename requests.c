@@ -106,14 +106,8 @@ handle_io_progress(Request *req)
 
     if (req->stream && req->writeSize > 0) {
         /* streaming in progress AND data available */
-        DEBUG_LOG("> NPP_WriteReady %s\n", req->url);
-        writeSize = pluginFuncs.writeready(&npp, req->stream);
-        DEBUG_LOG("returned %d\n", writeSize);
-
-        /* we really should never get throttled by the web player */
-        assert(req->writeSize <= writeSize);
         writeSize = req-> writeSize;
-        
+
         DEBUG_LOG("> NPP_Write %s %d %p\n", req->url, writeSize, req->writePtr);
         dataPtr = req->buf;
         bytesConsumed = pluginFuncs.write(&npp, req->stream, req->bytesWritten, writeSize, dataPtr);
