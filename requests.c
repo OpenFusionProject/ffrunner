@@ -313,10 +313,11 @@ progress_request(Request *req)
     case REQ_SRC_FILE:
         if (!ReadFile(req->handles.hFile, req->buf, REQUEST_BUFFER_SIZE, &req->writeSize, NULL)) {
             cancel_request(req);
-        } else {
+        } else if (req->bytesWritten == req->sizeHint) {
+            /* EOF */
+            req->done = true;
             req->doneReason = NPRES_DONE;
         }
-        req->done = true;
         break;
     case REQ_SRC_HTTP:
         if (!InternetReadFile(req->handles.http.hReq, req->buf, REQUEST_BUFFER_SIZE, &req->writeSize)) {
