@@ -73,6 +73,8 @@ message_loop(void)
             resubmit = handle_io_progress(req);
             if (resubmit) {
                 submit_request(req);
+            } else {
+                free(req);
             }
         } else {
             TranslateMessage(&msg);

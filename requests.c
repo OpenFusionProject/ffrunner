@@ -5,6 +5,9 @@
 PTP_POOL threadpool;
 HINTERNET hInternet;
 UINT ioMsg;
+char *srcUrl;
+size_t nRequests;
+bool mainLoaded;
 
 char *
 get_post_payload(const char *buf)
@@ -36,7 +39,7 @@ get_mime_type(char *fileName)
             return MIME_TYPES[i].mimeType;
         }
     }
-    return NULL;
+    return "application/octet-stream";
 }
 
 char *
@@ -54,6 +57,13 @@ get_file_name(char *url)
         }
     }
     return url;
+}
+
+void
+on_load_ready()
+{
+    /* load the actual content */
+    register_get_request(srcUrl, true, NULL);
 }
 
 bool
@@ -96,6 +106,7 @@ handle_io_progress(Request *req)
             req->doneReason = NPRES_NETWORK_ERR;
             req->done = true;
         } else {
+            req->bytesWritten += bytesConsumed;
             req->writePtr += bytesConsumed;
         }
     }
@@ -129,6 +140,13 @@ handle_io_progress(Request *req)
             }
         }
 
+        nRequests--;
+        if (!mainLoaded && nRequests == 0) {
+            log("Ready to load main\n");
+            on_load_ready();
+            mainLoaded = true;
+        }
+
         return false;
     }
 
@@ -139,27 +157,91 @@ void
 init_request_file(Request *req)
 {
     DWORD fileSize;
+    char redirectPath[MAX_PATH];
 
     req->handles.hFile = CreateFileA(req->url, GENERIC_READ, FILE_SHARE_READ, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
     if (req->handles.hFile == INVALID_HANDLE_VALUE) {
-        req->doneReason = NPRES_NETWORK_ERR;
-        req->done = true;
+        /* Check the assets folder */
+        snprintf(redirectPath, MAX_PATH, "assets/%s", req->url);
+        req->handles.hFile = CreateFileA(redirectPath, GENERIC_READ, FILE_SHARE_READ, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
+    }
+    if (req->handles.hFile == INVALID_HANDLE_VALUE) {
+        goto fail;
     }
 
     fileSize = GetFileSize(req->handles.hFile, NULL);
     if (fileSize != INVALID_FILE_SIZE) {
         req->sizeHint = fileSize;
     }
+
+    return;
+
+fail:
+    req->doneReason = NPRES_NETWORK_ERR;
+    req->done = true;
 }
 
 void
-init_request_http(Request *req, LPURL_COMPONENTSA urlComponents)
+init_request_http(Request *req, char *hostname, char *filePath, LPURL_COMPONENTSA urlComponents)
 {
+    DWORD lenlen;
+    DWORD err;
+
+    PCTSTR verb = req->isPost ? "POST" : "GET";
+    PCTSTR acceptedTypes[2] = { req->mimeType, NULL };
+    DWORD flags = 0;
+
+    /* for post */
+    LPSTR headers = NULL;
+    DWORD headersSz = 0;
+    LPSTR payload = NULL;
+    DWORD payloadSz = 0;
+
     if (hInternet == NULL) {
         goto fail;
     }
 
-    // TODO
+    req->handles.http.hConn = InternetConnectA(hInternet, hostname, urlComponents->nPort, NULL, NULL, INTERNET_SERVICE_HTTP, 0, 0);
+    if (!req->handles.http.hConn) {
+        log("Failed internetconnect: %d\n", GetLastError());
+        goto fail;
+    }
+
+    if (urlComponents->nScheme == INTERNET_SCHEME_HTTPS) {
+        flags |= INTERNET_FLAG_SECURE;
+    }
+    log("Verb: %s\nHost: %s\nPort: %d\nObject: %s\n", verb, hostname, urlComponents->nPort, filePath);
+    req->handles.http.hReq = HttpOpenRequestA(req->handles.http.hConn, verb, filePath, NULL, NULL, acceptedTypes, flags, 0);
+    if (!req->handles.http.hReq) {
+        log("Failed httpopen: %d\n", GetLastError());
+        goto fail;
+    }
+
+    if (req->isPost) {
+        headers = req->postData;
+        payload = get_post_payload(req->postData);
+        headersSz = payload - headers;
+        payloadSz = req->postDataLen - headersSz;
+    }
+
+    if (!HttpSendRequestA(req->handles.http.hReq, headers, headersSz, payload, payloadSz)) {
+        log("Failed httpsend: %d\n", GetLastError());
+        goto fail;
+    }
+
+    /* Attempt to get the length from the Content-Length header. */
+    /* If we don't know the length, the plugin asks for 0. */
+    lenlen = sizeof(req->sizeHint);
+    if (!HttpQueryInfoA(req->handles.http.hReq, HTTP_QUERY_FLAG_NUMBER | HTTP_QUERY_CONTENT_LENGTH, &req->sizeHint, &lenlen, 0)) {
+        err = GetLastError();
+        if (err != ERROR_HTTP_HEADER_NOT_FOUND) {
+            log("Failed httpquery: %d\n", GetLastError());
+            goto fail;
+        }
+        req->sizeHint = 0;
+    }
+
+    return;
 
 fail:
     req->doneReason = NPRES_NETWORK_ERR;
@@ -183,6 +265,7 @@ init_request(Request *req)
 
     /* determine whether the target is local or remote by the url */
     urlComponents = (URL_COMPONENTSA){
+        .dwStructSize = sizeof(URL_COMPONENTSA),
         .lpszHostName = hostname,
         .dwHostNameLength = MAX_URL_LENGTH,
         .lpszUrlPath = filePath,
@@ -195,7 +278,7 @@ init_request(Request *req)
     } else {
         /* remote */
         req->source = REQ_SRC_HTTP;
-        init_request_http(req, &urlComponents);
+        init_request_http(req, hostname, filePath, &urlComponents);
     }
 }
 
@@ -222,6 +305,14 @@ progress_request(Request *req)
         req->done = true;
         break;
     case REQ_SRC_HTTP:
+        if (!InternetReadFile(req->handles.http.hReq, req->buf, REQUEST_BUFFER_SIZE, &req->writeSize)) {
+            req->writeSize = 0; /* just in case */
+            req->doneReason = NPRES_NETWORK_ERR;
+        } else if (req->writeSize == 0) {
+            /* EOF */
+            req->done = true;
+            req->doneReason = NPRES_DONE;
+        }
         break;
     default:
         log("Bad req src %d\n", req->source);
@@ -243,10 +334,8 @@ step_request(PTP_CALLBACK_INSTANCE inst, Request *req, PTP_WORK work)
 void
 submit_request(Request *req)
 {
-    PTP_WORK work;
-
-    work = CreateThreadpoolWork(step_request, req, NULL);
-    SubmitThreadpoolWork(work);
+    assert(req->work);
+    SubmitThreadpoolWork(req->work);
 }
 
 void
@@ -262,11 +351,13 @@ register_get_request(const char *url, bool doNotify, void *notifyData)
         .notifyData = notifyData,
         .doNotify = doNotify,
         .isPost = false,
-        .postDataLen = 0
+        .postDataLen = 0,
+        .work = CreateThreadpoolWork(step_request, req, NULL)
     };
     strncpy(req->url, url, MAX_URL_LENGTH);
 
     submit_request(req);
+    nRequests++;
 }
 
 void
@@ -282,17 +373,20 @@ register_post_request(const char *url, bool doNotify, void *notifyData, uint32_t
         .notifyData = notifyData,
         .doNotify = doNotify,
         .isPost = true,
-        .postDataLen = postDataLen
+        .postDataLen = postDataLen,
+        .work = CreateThreadpoolWork(step_request, req, NULL)
     };
     strncpy(req->url, url, MAX_URL_LENGTH);
     memcpy(req->postData, postData, postDataLen);
     
     submit_request(req);
+    nRequests++;
 }
 
 void
-init_network()
+init_network(char *mainSrcUrl)
 {
+    srcUrl = mainSrcUrl;
     ioMsg = RegisterWindowMessageA(IO_MSG_NAME);
     if (!ioMsg) {
         log("Failed to register io msg: %d\n", GetLastError());
@@ -300,4 +394,6 @@ init_network()
     }
     threadpool = CreateThreadpool(NULL);
     hInternet = InternetOpenA(USERAGENT, INTERNET_OPEN_TYPE_DIRECT, NULL, NULL, 0);
+    nRequests = 0;
+    mainLoaded = false;
 }

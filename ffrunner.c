@@ -421,7 +421,7 @@ main(int argc, char **argv)
         exit(1);
     }
 
-    init_network();
+    init_network(srcUrl);
 
     log("> NP_GetEntryPoints\n");
     ret = NP_GetEntryPoints(&pluginFuncs);
@@ -498,9 +498,6 @@ main(int argc, char **argv)
     log("> scriptableObject.hasMethod style\n");
     ret = scriptableObject->_class->hasMethod(scriptableObject, getNPIdentifier("style"));
     log("returned %d\n", ret);
-
-    /* load the actual content */
-    //TODO register_get_request(srcUrl, true, NULL);
 
     message_loop();
 

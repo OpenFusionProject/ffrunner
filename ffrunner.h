@@ -53,6 +53,7 @@ typedef struct _Request {
     bool isPost;
     uint32_t postDataLen;
     char postData[REQUEST_BUFFER_SIZE];
+    PTP_WORK work;
     /* state */
     char *mimeType;
     RequestSource source;
@@ -78,7 +79,7 @@ void register_get_request(const char *url, bool doNotify, void *notifyData);
 void register_post_request(const char *url, bool doNotify, void *notifyData, uint32_t postDataLen, const char *postData);
 bool handle_io_progress(Request *req);
 void submit_request(Request *req);
-void init_network(void);
+void init_network(char *mainSrcUrl);
 
 HWND prepare_window(void);
 void message_loop(void);
