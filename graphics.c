@@ -62,12 +62,21 @@ prepare_window(void)
 void
 message_loop(void)
 {
+    Request *req;
+    bool resubmit;
     MSG msg = {0};
 
     while (GetMessage(&msg, NULL, 0, 0) > 0)
     {
-        TranslateMessage(&msg);
-        DispatchMessage(&msg);
-        handle_requests();
+        if (msg.message == ioMsg) {
+            req = (Request*)msg.lParam;
+            resubmit = handle_io_progress(req);
+            if (resubmit) {
+                submit_request(req);
+            }
+        } else {
+            TranslateMessage(&msg);
+            DispatchMessage(&msg);
+        }
     }
 }

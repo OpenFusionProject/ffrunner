@@ -1,5 +1,6 @@
 #include "ffrunner.h"
 
+DWORD mainThreadId;
 NPP_t npp;
 NPPluginFuncs pluginFuncs;
 NPNetscapeFuncs netscapeFuncs;
@@ -381,6 +382,8 @@ main(int argc, char **argv)
     HWND hwnd;
     RECT winRect;
 
+    mainThreadId = GetCurrentThreadId();
+
     init_logging(LOG_FILE_PATH);
 
     if (argc < 2) {
@@ -496,10 +499,8 @@ main(int argc, char **argv)
     ret = scriptableObject->_class->hasMethod(scriptableObject, getNPIdentifier("style"));
     log("returned %d\n", ret);
 
-    handle_requests();
-
     /* load the actual content */
-    register_get_request(srcUrl, true, NULL);
+    //TODO register_get_request(srcUrl, true, NULL);
 
     message_loop();
 

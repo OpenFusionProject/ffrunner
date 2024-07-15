@@ -7,6 +7,7 @@
 #include <assert.h>
 
 #include <windows.h>
+#include <wininet.h>
 
 #include "npapi/npapi.h"
 #include "npapi/npfunctions.h"
@@ -16,8 +17,8 @@
 #define LOG_FILE_PATH "ffrunner.log"
 #define USERAGENT "ffrunner"
 #define CLASS_NAME "FFWINDOW"
+#define IO_MSG_NAME "FFRunnerIoReady"
 #define REQUEST_BUFFER_SIZE 0x8000
-#define MAX_CONCURRENT_REQUESTS 64
 #define MAX_URL_LENGTH 256
 #define WIDTH 1280
 #define HEIGHT 720
@@ -26,20 +27,57 @@
 #define ARRLEN(x) (sizeof(x)/sizeof(*x))
 #define MIN(a, b) (a > b ? b : a)
 
+extern DWORD mainThreadId;
 extern NPP_t npp;
 extern NPPluginFuncs pluginFuncs;
 extern NPNetscapeFuncs netscapeFuncs;
 extern NPWindow npWin;
 
+extern PTP_POOL threadpool;
+extern UINT ioMsg;
+
 typedef NPError     (OSCALL *NP_GetEntryPointsFuncOS)(NPPluginFuncs*);
 typedef NPError     (OSCALL *NP_InitializeFuncOS)(NPNetscapeFuncs*);
 typedef NPError     (OSCALL *NP_ShutdownFuncOS)(void);
 
-extern CRITICAL_SECTION requestsCrit;
+#define REQ_SRC_UNSET 0
+#define REQ_SRC_FILE 1
+#define REQ_SRC_HTTP 2
+typedef uint8_t RequestSource;
 
-void handle_requests(void);
+typedef struct _Request {
+    /* params */
+    void *notifyData;
+    bool doNotify;
+    char url[MAX_URL_LENGTH];
+    bool isPost;
+    uint32_t postDataLen;
+    char postData[REQUEST_BUFFER_SIZE];
+    /* state */
+    char *mimeType;
+    RequestSource source;
+    NPStream *stream;
+    uint16_t streamType;
+    size_t sizeHint;
+    size_t writeSize;
+    size_t writePtr;
+    uint32_t bytesWritten;
+    uint8_t buf[REQUEST_BUFFER_SIZE];
+    bool done;
+    NPReason doneReason;
+    union {
+        HANDLE hFile;
+        struct _NetHandles {
+            HINTERNET hConn;
+            HINTERNET hReq;
+        } http;
+    } handles;
+} Request;
+
 void register_get_request(const char *url, bool doNotify, void *notifyData);
 void register_post_request(const char *url, bool doNotify, void *notifyData, uint32_t postDataLen, const char *postData);
+bool handle_io_progress(Request *req);
+void submit_request(Request *req);
 void init_network(void);
 
 HWND prepare_window(void);
