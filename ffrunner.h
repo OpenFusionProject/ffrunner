@@ -62,6 +62,7 @@ typedef struct _Request {
     uint16_t streamType;
     size_t sizeHint;
     size_t writeSize;
+    size_t writePtr;
     uint32_t bytesWritten;
     uint8_t buf[REQUEST_BUFFER_SIZE];
     bool done;

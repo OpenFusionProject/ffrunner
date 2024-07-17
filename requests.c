@@ -84,6 +84,7 @@ bool
 handle_io_progress(Request *req)
 {
     NPError err;
+    size_t bytesAvailable;
     uint32_t writeSize;
     int32_t bytesConsumed;
     uint8_t *dataPtr;
@@ -104,12 +105,15 @@ handle_io_progress(Request *req)
         }
     }
 
-    if (req->stream && req->writeSize > 0) {
+    bytesAvailable = req->writeSize - req->writePtr;
+    if (req->stream && bytesAvailable > 0) {
         /* streaming in progress AND data available */
-        writeSize = req-> writeSize;
+        DEBUG_LOG("> NPP_WriteReady %s %d\n", req->url, bytesAvailable);
+        writeSize = pluginFuncs.writeready(&npp, req->stream);
+        writeSize = MIN(writeSize, bytesAvailable);
 
         DEBUG_LOG("> NPP_Write %s %d\n", req->url, writeSize);
-        dataPtr = req->buf;
+        dataPtr = req->buf + req->writePtr;
         bytesConsumed = pluginFuncs.write(&npp, req->stream, req->bytesWritten, writeSize, dataPtr);
         if (bytesConsumed < 0) {
             log("write error %d\n", bytesConsumed);
@@ -119,10 +123,11 @@ handle_io_progress(Request *req)
             cancel_request(req);
         } else {
             req->bytesWritten += bytesConsumed;
+            req->writePtr += bytesConsumed;
         }
     }
 
-    if (req->failed || req->done) {
+    if (req->failed || (req->done && bytesAvailable == 0)) {
         /* request is cancelled or complete */
         if (req->stream) {
             log("> NPP_DestroyStream %s %d\n", req->url, req->doneReason);
@@ -308,29 +313,36 @@ progress_request(Request *req)
 {
     assert(req->source != REQ_SRC_UNSET);
 
+    if (req->writePtr != req->writeSize) {
+        /* waiting for plugin to consume bytes */
+        return;
+    }
+    req->writePtr = 0;
+    req->writeSize = 0;
+
     switch (req->source)
     {
     case REQ_SRC_FILE:
         if (!ReadFile(req->handles.hFile, req->buf, REQUEST_BUFFER_SIZE, &req->writeSize, NULL)) {
             cancel_request(req);
-        } else if (req->bytesWritten == req->sizeHint) {
-            /* EOF */
-            req->done = true;
-            req->doneReason = NPRES_DONE;
+            return;
         }
         break;
     case REQ_SRC_HTTP:
         if (!InternetReadFile(req->handles.http.hReq, req->buf, REQUEST_BUFFER_SIZE, &req->writeSize)) {
             cancel_request(req);
-        } else if (req->writeSize == 0) {
-            /* EOF */
-            req->done = true;
-            req->doneReason = NPRES_DONE;
+            return;
         }
         break;
     default:
         log("Bad req src %d\n", req->source);
         exit(1);
+    }
+
+    if (req->writeSize == 0) {
+        /* EOF */
+        req->done = true;
+        req->doneReason = NPRES_DONE;
     }
 }
 
