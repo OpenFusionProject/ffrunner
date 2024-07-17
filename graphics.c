@@ -1,5 +1,7 @@
 #include "ffrunner.h"
 
+HWND hwnd;
+
 LRESULT CALLBACK
 window_proc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 {
@@ -35,11 +37,10 @@ window_proc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
     return DefWindowProc(hwnd, uMsg, wParam, lParam);
 }
 
-HWND
+void
 prepare_window(void)
 {
     WNDCLASS wc = {0};
-    HWND hwnd;
     HICON hIcon;
 
     wc.lpfnWndProc   = window_proc;
@@ -52,8 +53,18 @@ prepare_window(void)
     RegisterClass(&wc);
 
     hwnd = CreateWindowExA(0, CLASS_NAME, "FusionFall", WS_OVERLAPPEDWINDOW, CW_USEDEFAULT, CW_USEDEFAULT, WIDTH, HEIGHT, 0, 0, GetModuleHandleA(0), 0);
+}
 
-    return hwnd;
+void
+show_error_dialog(char *msg)
+{
+    MessageBoxA(hwnd, msg, "Sorry!", MB_OK | MB_ICONERROR | MB_TOPMOST);
+}
+
+void
+open_link(char *url)
+{
+    ShellExecuteA(hwnd, "open", url, NULL, NULL, SW_NORMAL);
 }
 
 void

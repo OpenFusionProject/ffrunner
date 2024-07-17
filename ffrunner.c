@@ -176,16 +176,60 @@ NPN_GetValueProc(NPP instance, NPNVariable variable, void *ret_value)
 
 #define AUTH_CALLBACK_SCRIPT "authDoCallback(\"UnityEngine.GameObject\");"
 #define EXIT_CALLBACK_SCRIPT "HomePage(\"UnityEngine.GameObject\");"
+#define NAVIGATE_SCRIPT "location.href=\""
+
+#define TARGET_REGISTER "https://audience.fusionfall.com/ff/regWizard.do?_flowId=fusionfall-registration-flow"
+#define TARGET_MANAGE_ACCOUNT "https://audience.fusionfall.com/ff/login.do"
+#define TARGET_COMMUNITY "http://forums.fusionfall.com"
+
+#define DISCORD_LINK "https://discord.gg/DYavckB"
+
+void
+handle_navigation(char *target)
+{
+    if (strncmp(target, TARGET_REGISTER, sizeof(TARGET_REGISTER) - 2) == 0) {
+        show_error_dialog("The register page is currently unimplemented.\n\n" \
+            "You can still create an account: type your desired username and password into the provided boxes and click \"Log In\". " \
+            "Your account will then be automatically created on the server. \nBe sure to remember these details!");
+    } else if (strncmp(target, TARGET_MANAGE_ACCOUNT, sizeof(TARGET_MANAGE_ACCOUNT) - 2) == 0) {
+        show_error_dialog("Account management is not available.");
+    } else if (strncmp(target, TARGET_COMMUNITY, sizeof(TARGET_COMMUNITY) - 2) == 0) {
+        open_link(DISCORD_LINK);
+    } else {
+        logmsg("Unhandled navigation target: %s\n", target);
+    }
+}
+
+char *
+get_navigation_target(const char *script)
+{
+    char *found;
+
+    found = strstr(script, NAVIGATE_SCRIPT);
+    if (!found) {
+        return NULL;
+    }
+
+    return found + sizeof(NAVIGATE_SCRIPT) - 1;
+}
 
 bool
 NPN_EvaluateProc(NPP npp, NPObject *obj, NPString *script, NPVariant *result)
 {
+    char *navigationTarget;
+
     logmsg("< NPN_EvaluateProc %s\n", script->UTF8Characters);
 
     /* Evaluates JS calls, like MarkProgress(1), most of which doesn't need to do anything. */
     if (strncmp(script->UTF8Characters, EXIT_CALLBACK_SCRIPT, sizeof(EXIT_CALLBACK_SCRIPT)) == 0) {
         /* Gracefully exit game. */
         PostQuitMessage(0);
+    }
+
+    /* If navigation, handle */
+    navigationTarget = get_navigation_target(script->UTF8Characters);
+    if (navigationTarget != NULL) {
+        handle_navigation(navigationTarget);
     }
 
     *result = (NPVariant){
@@ -379,7 +423,6 @@ main(int argc, char **argv)
     NPError ret;
     NPObject *scriptableObject;
     HMODULE loader;
-    HWND hwnd;
     RECT winRect;
 
     mainThreadId = GetCurrentThreadId();
@@ -421,7 +464,7 @@ main(int argc, char **argv)
         exit(1);
     }
 
-    hwnd = prepare_window();
+    prepare_window();
     assert(hwnd);
 
     init_network(srcUrl);

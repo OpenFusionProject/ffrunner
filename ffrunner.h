@@ -35,6 +35,8 @@ extern NPPluginFuncs pluginFuncs;
 extern NPNetscapeFuncs netscapeFuncs;
 extern NPWindow npWin;
 
+extern HWND hwnd;
+
 extern PTP_POOL threadpool;
 extern UINT ioMsg;
 
@@ -92,7 +94,9 @@ bool handle_io_progress(Request *req);
 void submit_request(Request *req);
 void init_network(char *mainSrcUrl);
 
-HWND prepare_window(void);
+void prepare_window(void);
+void show_error_dialog(char *msg);
+void open_link(char *url);
 void message_loop(void);
 
 void init_logging(const char *logPath);

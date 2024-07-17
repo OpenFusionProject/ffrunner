@@ -6,6 +6,8 @@
     #define DEBUG_LOG(fmt, ...) ;
 #endif
 
+#define POST_PAYLOAD_DIVIDER "\r\n\r\n"
+
 PTP_POOL threadpool;
 HINTERNET hInternet;
 UINT ioMsg;
@@ -16,8 +18,7 @@ bool mainLoaded;
 char *
 get_post_payload(const char *buf)
 {
-    const char *term = "\r\n\r\n";
-    return strstr(buf, term) + sizeof(term);
+    return strstr(buf, POST_PAYLOAD_DIVIDER) + sizeof(POST_PAYLOAD_DIVIDER) - 1;
 }
 
 struct {
