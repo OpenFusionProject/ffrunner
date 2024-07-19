@@ -147,6 +147,10 @@ handle_io_progress(Request *req)
             CloseHandle(req->handles.hFile);
         } 
 
+        if (req->source == REQ_SRC_CACHE && req->handles.hFile != NULL) {
+            assert(UnlockUrlCacheEntryStream(req->handles.hFile, 0));
+        }
+
         if (req->source == REQ_SRC_HTTP) {
             if (req->handles.http.hReq != NULL) {
                 InternetCloseHandle(req->handles.http.hReq);
@@ -202,6 +206,8 @@ init_request_http(Request *req, char *hostname, char *filePath, LPURL_COMPONENTS
     DWORD lenlen;
     DWORD err;
     DWORD status;
+    HANDLE cacheFile;
+    INTERNET_CACHE_ENTRY_INFOA *cacheData;
 
     PCTSTR verb = req->isPost ? "POST" : "GET";
     PCTSTR acceptedTypes[2] = { req->mimeType, NULL };
@@ -212,6 +218,31 @@ init_request_http(Request *req, char *hostname, char *filePath, LPURL_COMPONENTS
     DWORD headersSz = 0;
     LPSTR payload = NULL;
     DWORD payloadSz = 0;
+
+    if (!req->isPost) {
+        /* HACK: Wine's implementation of wininet doesn't support
+        transparently reading from the cache, so we attempt to
+        explicitly read from it before falling back to HTTP */
+        lenlen = sizeof(INTERNET_CACHE_ENTRY_INFOA) + MAX_URL_LENGTH + MAX_PATH;
+        cacheData = (INTERNET_CACHE_ENTRY_INFOA *)malloc(lenlen);
+retry:
+        cacheFile = RetrieveUrlCacheEntryStreamA(req->url, cacheData, &lenlen, true, 0);
+        if (cacheFile == NULL) {
+            err = GetLastError();
+            if (err == ERROR_INSUFFICIENT_BUFFER) {
+                cacheData = (INTERNET_CACHE_ENTRY_INFOA *)realloc(cacheData, lenlen);
+                goto retry;
+            }
+            assert(err == ERROR_FILE_NOT_FOUND);
+        } else {
+            req->source = REQ_SRC_CACHE;
+            req->handles.hFile = cacheFile;
+            req->sizeHint = cacheData->dwSizeLow;
+            free(cacheData);
+            return;
+        }
+        free(cacheData);
+    }
 
     if (hInternet == NULL) {
         goto fail;
@@ -300,11 +331,11 @@ init_request(Request *req)
     if (!InternetCrackUrlA(req->url, strlen(req->url), 0, &urlComponents)) {
         /* local */
         req->source = REQ_SRC_FILE;
-        return init_request_file(req);
+        init_request_file(req);
     } else {
         /* remote */
         req->source = REQ_SRC_HTTP;
-        return init_request_http(req, hostname, filePath, &urlComponents);
+        init_request_http(req, hostname, filePath, &urlComponents);
     }
 }
 
@@ -324,6 +355,13 @@ progress_request(Request *req)
     {
     case REQ_SRC_FILE:
         if (!ReadFile(req->handles.hFile, req->buf, REQUEST_BUFFER_SIZE, &req->writeSize, NULL)) {
+            cancel_request(req);
+            return;
+        }
+        break;
+    case REQ_SRC_CACHE:
+        req->writeSize = REQUEST_BUFFER_SIZE;
+        if (!ReadUrlCacheEntryStream(req->handles.hFile, req->bytesWritten, req->buf, &req->writeSize, 0)) {
             cancel_request(req);
             return;
         }

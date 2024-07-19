@@ -44,6 +44,7 @@ typedef NPError     (OSCALL *NP_ShutdownFuncOS)(void);
 #define REQ_SRC_UNSET 0
 #define REQ_SRC_FILE 1
 #define REQ_SRC_HTTP 2
+#define REQ_SRC_CACHE 3
 typedef uint8_t RequestSource;
 
 typedef struct _Request {
