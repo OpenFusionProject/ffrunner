@@ -148,7 +148,8 @@ handle_io_progress(Request *req)
         } 
 
         if (req->source == REQ_SRC_CACHE && req->handles.hFile != NULL) {
-            assert(UnlockUrlCacheEntryStream(req->handles.hFile, 0));
+            //assert(UnlockUrlCacheEntryStream(req->handles.hFile, 0));
+            CloseHandle(req->handles.hFile);
         }
 
         if (req->source == REQ_SRC_HTTP) {
@@ -236,8 +237,10 @@ retry:
             assert(err == ERROR_FILE_NOT_FOUND);
         } else {
             req->source = REQ_SRC_CACHE;
-            req->handles.hFile = cacheFile;
+            req->handles.hFile = CreateFileA(cacheData->lpszLocalFileName, GENERIC_READ, FILE_SHARE_READ, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
+            //req->handles.hFile = cacheFile;
             req->sizeHint = cacheData->dwSizeLow;
+            UnlockUrlCacheEntryStream(cacheFile, 0);
             free(cacheData);
             return;
         }
@@ -360,8 +363,9 @@ progress_request(Request *req)
         }
         break;
     case REQ_SRC_CACHE:
-        req->writeSize = REQUEST_BUFFER_SIZE;
-        if (!ReadUrlCacheEntryStream(req->handles.hFile, req->bytesWritten, req->buf, &req->writeSize, 0)) {
+        //req->writeSize = REQUEST_BUFFER_SIZE;
+        if (!ReadFile(req->handles.hFile, req->buf, REQUEST_BUFFER_SIZE, &req->writeSize, NULL)) {
+        //if (!ReadUrlCacheEntryStream(req->handles.hFile, req->bytesWritten, req->buf, &req->writeSize, 0)) {
             cancel_request(req);
             return;
         }
