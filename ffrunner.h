@@ -93,4 +93,4 @@ HWND prepare_window(void);
 void message_loop(void);
 
 void init_logging(const char *logPath);
-void log(const char *fmt, ...);
+void logmsg(const char *fmt, ...);

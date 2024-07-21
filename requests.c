@@ -96,9 +96,9 @@ handle_io_progress(Request *req)
         req->stream->url = req->url;
         req->stream->end = req->sizeHint;
         req->stream->notifyData = req->notifyData;
-        log("> NPP_NewStream %s\n", req->url);
+        logmsg("> NPP_NewStream %s\n", req->url);
         err = pluginFuncs.newstream(&npp, req->mimeType, req->stream, false, &req->streamType);
-        log("returned %d\n", err);
+        logmsg("returned %d\n", err);
         if (err != NPERR_NO_ERROR) {
             cancel_request(req);
         }
@@ -115,10 +115,10 @@ handle_io_progress(Request *req)
         dataPtr = req->buf + req->writePtr;
         bytesConsumed = pluginFuncs.write(&npp, req->stream, req->bytesWritten, writeSize, dataPtr);
         if (bytesConsumed < 0) {
-            log("write error %d\n", bytesConsumed);
+            logmsg("write error %d\n", bytesConsumed);
             cancel_request(req);
         } else if ((uint32_t)bytesConsumed < writeSize) {
-            log("not enough bytes consumed %d < %d\n", bytesConsumed, writeSize);
+            logmsg("not enough bytes consumed %d < %d\n", bytesConsumed, writeSize);
             cancel_request(req);
         } else {
             req->bytesWritten += bytesConsumed;
@@ -129,16 +129,16 @@ handle_io_progress(Request *req)
     if (req->failed || (req->done && bytesAvailable == 0)) {
         /* request is cancelled or complete */
         if (req->stream) {
-            log("> NPP_DestroyStream %s %d\n", req->url, req->doneReason);
+            logmsg("> NPP_DestroyStream %s %d\n", req->url, req->doneReason);
             err = pluginFuncs.destroystream(&npp, req->stream, req->doneReason);
             if (err != NPERR_NO_ERROR) {
-                log("destroystream error %d\n", err);
+                logmsg("destroystream error %d\n", err);
             }
             free(req->stream);
         }
 
         if (req->doNotify) {
-            log("> NPP_UrlNotify %s %d %p\n", req->url, req->doneReason, req->notifyData);
+            logmsg("> NPP_UrlNotify %s %d %p\n", req->url, req->doneReason, req->notifyData);
             pluginFuncs.urlnotify(&npp, req->url, req->doneReason, req->notifyData);
         }
 
@@ -157,7 +157,7 @@ handle_io_progress(Request *req)
 
         nRequests--;
         if (!mainLoaded && nRequests == 0) {
-            log("Ready to load main\n");
+            logmsg("Ready to load main\n");
             on_load_ready();
             mainLoaded = true;
         }
@@ -267,17 +267,17 @@ init_request_http(Request *req, char *hostname, char *filePath, LPURL_COMPONENTS
 
     req->handles.http.hConn = InternetConnectA(hInternet, hostname, urlComponents->nPort, NULL, NULL, INTERNET_SERVICE_HTTP, 0, 0);
     if (!req->handles.http.hConn) {
-        log("Failed internetconnect: %d\n", GetLastError());
+        logmsg("Failed internetconnect: %d\n", GetLastError());
         goto fail;
     }
 
     if (urlComponents->nScheme == INTERNET_SCHEME_HTTPS) {
         flags |= INTERNET_FLAG_SECURE;
     }
-    log("Verb: %s\nHost: %s\nPort: %d\nObject: %s\n", verb, hostname, urlComponents->nPort, filePath);
+    logmsg("Verb: %s\nHost: %s\nPort: %d\nObject: %s\n", verb, hostname, urlComponents->nPort, filePath);
     req->handles.http.hReq = HttpOpenRequestA(req->handles.http.hConn, verb, filePath, NULL, NULL, acceptedTypes, flags, 0);
     if (!req->handles.http.hReq) {
-        log("Failed httpopen: %d\n", GetLastError());
+        logmsg("Failed httpopen: %d\n", GetLastError());
         goto fail;
     }
 
@@ -289,18 +289,18 @@ init_request_http(Request *req, char *hostname, char *filePath, LPURL_COMPONENTS
     }
 
     if (!HttpSendRequestA(req->handles.http.hReq, headers, headersSz, payload, payloadSz)) {
-        log("Failed httpsend: %d\n", GetLastError());
+        logmsg("Failed httpsend: %d\n", GetLastError());
         goto fail;
     }
 
     /* Make sure we don't get a 404 */
     lenlen = sizeof(status);
     if (!HttpQueryInfoA(req->handles.http.hReq, HTTP_QUERY_FLAG_NUMBER | HTTP_QUERY_STATUS_CODE, &status, &lenlen, 0)) {
-        log("Failed httpquery (status code): %d\n", GetLastError());
+        logmsg("Failed httpquery (status code): %d\n", GetLastError());
         goto fail;
     }
     if (status != HTTP_STATUS_OK) {
-        log("HTTP not OK (%d)\n", status);
+        logmsg("HTTP not OK (%d)\n", status);
         goto fail;
     }
 
@@ -312,7 +312,7 @@ init_request_http(Request *req, char *hostname, char *filePath, LPURL_COMPONENTS
     if (!HttpQueryInfoA(req->handles.http.hReq, HTTP_QUERY_FLAG_NUMBER | HTTP_QUERY_CONTENT_LENGTH, &req->sizeHint, &lenlen, 0)) {
         err = GetLastError();
         if (err != ERROR_HTTP_HEADER_NOT_FOUND) {
-            log("Failed httpquery: %d\n", GetLastError());
+            logmsg("Failed httpquery: %d\n", GetLastError());
             goto fail;
         }
         req->sizeHint = 0;
@@ -385,7 +385,7 @@ progress_request(Request *req)
         }
         break;
     default:
-        log("Bad req src %d\n", req->source);
+        logmsg("Bad req src %d\n", req->source);
         exit(1);
     }
 
@@ -474,7 +474,7 @@ init_network(char *mainSrcUrl)
     srcUrl = mainSrcUrl;
     ioMsg = RegisterWindowMessageA(IO_MSG_NAME);
     if (!ioMsg) {
-        log("Failed to register io msg: %d\n", GetLastError());
+        logmsg("Failed to register io msg: %d\n", GetLastError());
         exit(1);
     }
     threadpool = CreateThreadpool(NULL);

@@ -18,7 +18,7 @@ init_logging(const char *logPath)
 }
 
 void
-log(const char *fmt, ...)
+logmsg(const char *fmt, ...)
 {
     va_list args;
     char buf[4028];
