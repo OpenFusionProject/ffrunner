@@ -143,12 +143,7 @@ handle_io_progress(Request *req)
             pluginFuncs.urlnotify(&npp, req->url, req->doneReason, req->notifyData);
         }
 
-        if (req->source == REQ_SRC_FILE && req->handles.hFile != INVALID_HANDLE_VALUE) {
-            CloseHandle(req->handles.hFile);
-        } 
-
-        if (req->source == REQ_SRC_CACHE && req->handles.hFile != NULL) {
-            //assert(UnlockUrlCacheEntryStream(req->handles.hFile, 0));
+        if ((req->source == REQ_SRC_FILE || req->source == REQ_SRC_CACHE) && req->handles.hFile != INVALID_HANDLE_VALUE) {
             CloseHandle(req->handles.hFile);
         }
 
@@ -201,14 +196,54 @@ fail:
     cancel_request(req);
 }
 
+bool
+try_init_from_cache(Request *req)
+{
+    DWORD lenlen;
+    DWORD err;
+    HANDLE hCache, hFile;
+    INTERNET_CACHE_ENTRY_INFOA *cacheData;
+    bool success;
+
+    success = false;
+    lenlen = sizeof(INTERNET_CACHE_ENTRY_INFOA) + MAX_URL_LENGTH + MAX_PATH;
+    cacheData = (INTERNET_CACHE_ENTRY_INFOA *)malloc(lenlen);
+retry:
+    hCache = RetrieveUrlCacheEntryStreamA(req->url, cacheData, &lenlen, true, 0);
+    if (hCache == NULL) {
+        err = GetLastError();
+        if (err == ERROR_INSUFFICIENT_BUFFER) {
+            cacheData = (INTERNET_CACHE_ENTRY_INFOA *)realloc(cacheData, lenlen);
+            goto retry;
+        }
+        assert(err == ERROR_FILE_NOT_FOUND);
+        goto cleanup;
+    }
+
+    hFile = CreateFileA(cacheData->lpszLocalFileName, GENERIC_READ, FILE_SHARE_READ, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
+    if (hFile == INVALID_HANDLE_VALUE) {
+        goto cleanup;
+    }
+
+    req->handles.hFile = hFile;
+    req->source = REQ_SRC_CACHE;
+    req->sizeHint = cacheData->dwSizeLow;
+    success = true;
+
+cleanup:
+    if (hCache != NULL) {
+        UnlockUrlCacheEntryStream(hCache, 0);
+    }
+    free(cacheData);
+    return success;
+}
+
 void
 init_request_http(Request *req, char *hostname, char *filePath, LPURL_COMPONENTSA urlComponents)
 {
     DWORD lenlen;
     DWORD err;
     DWORD status;
-    HANDLE cacheFile;
-    INTERNET_CACHE_ENTRY_INFOA *cacheData;
 
     PCTSTR verb = req->isPost ? "POST" : "GET";
     PCTSTR acceptedTypes[2] = { req->mimeType, NULL };
@@ -224,27 +259,9 @@ init_request_http(Request *req, char *hostname, char *filePath, LPURL_COMPONENTS
         /* HACK: Wine's implementation of wininet doesn't support
         transparently reading from the cache, so we attempt to
         explicitly read from it before falling back to HTTP */
-        lenlen = sizeof(INTERNET_CACHE_ENTRY_INFOA) + MAX_URL_LENGTH + MAX_PATH;
-        cacheData = (INTERNET_CACHE_ENTRY_INFOA *)malloc(lenlen);
-retry:
-        cacheFile = RetrieveUrlCacheEntryStreamA(req->url, cacheData, &lenlen, true, 0);
-        if (cacheFile == NULL) {
-            err = GetLastError();
-            if (err == ERROR_INSUFFICIENT_BUFFER) {
-                cacheData = (INTERNET_CACHE_ENTRY_INFOA *)realloc(cacheData, lenlen);
-                goto retry;
-            }
-            assert(err == ERROR_FILE_NOT_FOUND);
-        } else {
-            req->source = REQ_SRC_CACHE;
-            req->handles.hFile = CreateFileA(cacheData->lpszLocalFileName, GENERIC_READ, FILE_SHARE_READ, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
-            //req->handles.hFile = cacheFile;
-            req->sizeHint = cacheData->dwSizeLow;
-            UnlockUrlCacheEntryStream(cacheFile, 0);
-            free(cacheData);
+        if (try_init_from_cache(req)) {
             return;
         }
-        free(cacheData);
     }
 
     if (hInternet == NULL) {
@@ -357,15 +374,8 @@ progress_request(Request *req)
     switch (req->source)
     {
     case REQ_SRC_FILE:
-        if (!ReadFile(req->handles.hFile, req->buf, REQUEST_BUFFER_SIZE, &req->writeSize, NULL)) {
-            cancel_request(req);
-            return;
-        }
-        break;
     case REQ_SRC_CACHE:
-        //req->writeSize = REQUEST_BUFFER_SIZE;
         if (!ReadFile(req->handles.hFile, req->buf, REQUEST_BUFFER_SIZE, &req->writeSize, NULL)) {
-        //if (!ReadUrlCacheEntryStream(req->handles.hFile, req->bytesWritten, req->buf, &req->writeSize, 0)) {
             cancel_request(req);
             return;
         }
