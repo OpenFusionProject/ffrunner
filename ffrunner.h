@@ -1,5 +1,6 @@
 #pragma once
 
+#include <stdio.h>
 #include <stdlib.h>
 #include <stdint.h>
 #include <stdbool.h>
@@ -41,13 +42,17 @@ typedef NPError     (OSCALL *NP_GetEntryPointsFuncOS)(NPPluginFuncs*);
 typedef NPError     (OSCALL *NP_InitializeFuncOS)(NPNetscapeFuncs*);
 typedef NPError     (OSCALL *NP_ShutdownFuncOS)(void);
 
-#define REQ_SRC_UNSET 0
-#define REQ_SRC_FILE 1
-#define REQ_SRC_HTTP 2
-#define REQ_SRC_CACHE 3
-typedef uint8_t RequestSource;
+enum {
+    REQ_SRC_UNSET,
+    REQ_SRC_FILE,
+    REQ_SRC_HTTP,
+    REQ_SRC_CACHE
+};
 
-typedef struct _Request {
+typedef uint8_t RequestSource;
+typedef struct Request Request;
+
+struct Request {
     /* params */
     void *notifyData;
     bool doNotify;
@@ -71,12 +76,12 @@ typedef struct _Request {
     bool failed;
     union {
         HANDLE hFile;
-        struct _NetHandles {
+        struct {
             HINTERNET hConn;
             HINTERNET hReq;
         } http;
     } handles;
-} Request;
+};
 
 void register_get_request(const char *url, bool doNotify, void *notifyData);
 void register_post_request(const char *url, bool doNotify, void *notifyData, uint32_t postDataLen, const char *postData);

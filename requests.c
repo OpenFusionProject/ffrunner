@@ -1,7 +1,5 @@
 #include "ffrunner.h"
 
-#include <stdio.h>
-
 #ifdef DEBUG
     #define DEBUG_LOG(fmt, ...) log(fmt, __VA_ARGS__)
 #else
@@ -72,7 +70,8 @@ on_load_ready()
     register_get_request(srcUrl, true, NULL);
 }
 
-void cancel_request(Request *req)
+void
+cancel_request(Request *req)
 {
     req->writeSize = 0;
     req->doneReason = NPRES_NETWORK_ERR;
@@ -252,9 +251,11 @@ init_request_http(Request *req, char *hostname, char *filePath, LPURL_COMPONENTS
     DWORD payloadSz = 0;
 
     if (!req->isPost) {
-        /* HACK: Wine's implementation of wininet doesn't support
-        transparently reading from the cache, so we attempt to
-        explicitly read from it before falling back to HTTP */
+        /*
+         * HACK: Wine's implementation of wininet doesn't support
+         * transparently reading from the cache, so we attempt to
+         * explicitly read from it before falling back to HTTP.
+         */
         if (try_init_from_cache(req)) {
             return;
         }
@@ -303,8 +304,10 @@ init_request_http(Request *req, char *hostname, char *filePath, LPURL_COMPONENTS
         goto fail;
     }
 
-    /* Attempt to get the length from the Content-Length header. */
-    /* If we don't know the length, the plugin asks for 0. */
+    /*
+     * Attempt to get the length from the Content-Length header.
+     * If we don't know the length, the plugin asks for 0.
+     */
     lenlen = sizeof(req->sizeHint);
     if (!HttpQueryInfoA(req->handles.http.hReq, HTTP_QUERY_FLAG_NUMBER | HTTP_QUERY_CONTENT_LENGTH, &req->sizeHint, &lenlen, 0)) {
         err = GetLastError();
@@ -367,8 +370,7 @@ progress_request(Request *req)
     req->writePtr = 0;
     req->writeSize = 0;
 
-    switch (req->source)
-    {
+    switch (req->source) {
     case REQ_SRC_FILE:
     case REQ_SRC_CACHE:
         if (!ReadFile(req->handles.hFile, req->buf, REQUEST_BUFFER_SIZE, &req->writeSize, NULL)) {
@@ -394,8 +396,7 @@ progress_request(Request *req)
     }
 }
 
-VOID
-CALLBACK
+VOID CALLBACK
 handle_request(PTP_CALLBACK_INSTANCE inst, Request *req, PTP_WORK work)
 {
     while (!req->done) {
