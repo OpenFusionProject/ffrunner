@@ -67,10 +67,10 @@ struct Request {
     RequestSource source;
     NPStream *stream;
     uint16_t streamType;
-    size_t sizeHint;
-    size_t writeSize;
-    size_t writePtr;
-    uint32_t bytesWritten;
+    DWORD sizeHint;
+    DWORD writeSize;
+    DWORD writePtr;
+    DWORD bytesWritten;
     uint8_t buf[REQUEST_BUFFER_SIZE];
     bool done;
     NPReason doneReason;

@@ -397,8 +397,11 @@ progress_request(Request *req)
 }
 
 VOID CALLBACK
-handle_request(PTP_CALLBACK_INSTANCE inst, Request *req, PTP_WORK work)
+handle_request(PTP_CALLBACK_INSTANCE inst, void *reqArg, PTP_WORK work)
 {
+    Request *req;
+
+    req = reqArg;
     while (!req->done) {
         if (req->source == REQ_SRC_UNSET) {
             init_request(req);
