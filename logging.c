@@ -33,7 +33,6 @@ void log(const char *fmt, ...) {
     va_end(args);
 
     EnterCriticalSection(&cs);
-    printf("%s", buf);
     if (logFile != INVALID_HANDLE_VALUE) {
         WriteFile(logFile, buf, len, &written, NULL);
     }
