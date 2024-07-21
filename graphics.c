@@ -1,7 +1,10 @@
 #include "ffrunner.h"
 
-HWND hwnd;
+#include "SDL2/SDL.h"
+#include "SDL2/SDL_syswm.h"
 
+HWND hwnd;
+#if 0
 LRESULT CALLBACK
 window_proc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 {
@@ -36,10 +39,11 @@ window_proc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 
     return DefWindowProc(hwnd, uMsg, wParam, lParam);
 }
-
+#endif
 void
 prepare_window(void)
 {
+#if 0
     WNDCLASS wc = {0};
     HICON hIcon;
 
@@ -53,6 +57,30 @@ prepare_window(void)
     RegisterClass(&wc);
 
     hwnd = CreateWindowExA(0, CLASS_NAME, "FusionFall", WS_OVERLAPPEDWINDOW, CW_USEDEFAULT, CW_USEDEFAULT, WIDTH, HEIGHT, 0, 0, GetModuleHandleA(0), 0);
+#endif
+
+    SDL_Window *sdlWindow;
+    SDL_SysWMinfo info;
+
+    if (SDL_Init(SDL_INIT_VIDEO) == -1) {
+        SDL_Log("SDL_Init failed: %s\n", SDL_GetError());
+        exit(1);
+    }
+
+    sdlWindow = SDL_CreateWindow("FusionFall", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED,
+            1280, 720, 0);
+    if (!sdlWindow) {
+        SDL_Log("SDL_CreateWindow failed: %s\n", SDL_GetError());
+        exit(1);
+    }
+
+    SDL_VERSION(&info.version);
+    if (!SDL_GetWindowWMInfo(sdlWindow, &info)) {
+        SDL_Log("SDL_GetWindowWMInfo failed: %s\n", SDL_GetError());
+        exit(1);
+    }
+
+    hwnd = info.info.win.window;
 }
 
 void

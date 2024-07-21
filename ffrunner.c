@@ -507,8 +507,8 @@ main(int argc, char **argv)
     ret = pluginFuncs.newp("application/vnd.ffuwp", &npp, 1, ARRLEN(argn), argn, argp, &saved);
     logmsg("returned %d\n", ret);
 
-    ShowWindow(hwnd, SW_SHOWDEFAULT);
-    UpdateWindow(hwnd);
+    //ShowWindow(hwnd, SW_SHOWDEFAULT);
+    //UpdateWindow(hwnd);
 
     npWin = (NPWindow){
         .window = hwnd,
