@@ -121,7 +121,7 @@ NPN_CreateObjectProc(NPP npp, NPClass *aClass)
     if (aClass->allocate)
         npobj = aClass->allocate(npp, aClass);
     else
-        npobj = (NPObject*)malloc(sizeof(*npobj));
+        npobj = malloc(sizeof(*npobj));
 
     if (npobj) {
         npobj->_class = aClass;
@@ -230,7 +230,7 @@ NPAllocateFunction(NPP instance, NPClass *aClass)
     if (aClass->allocate)
         npobj = aClass->allocate(instance, aClass);
     else
-        npobj = (NPObject*)malloc(sizeof(*npobj));
+        npobj = malloc(sizeof(*npobj));
 
     if (npobj) {
         npobj->_class = aClass;

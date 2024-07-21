@@ -60,6 +60,7 @@ struct Request {
     bool isPost;
     uint32_t postDataLen;
     char postData[POST_DATA_SIZE];
+
     /* state */
     HANDLE readyEvent;
     char *mimeType;
@@ -74,6 +75,8 @@ struct Request {
     bool done;
     NPReason doneReason;
     bool failed;
+
+    /* handle */
     union {
         HANDLE hFile;
         struct {

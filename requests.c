@@ -92,7 +92,7 @@ handle_io_progress(Request *req)
 
     if (req->stream == NULL && !req->failed) {
         /* start streaming */
-        req->stream = (NPStream*)malloc(sizeof(NPStream));
+        req->stream = malloc(sizeof(*req->stream));
         req->stream->url = req->url;
         req->stream->end = req->sizeHint;
         req->stream->notifyData = req->notifyData;
@@ -206,12 +206,12 @@ try_init_from_cache(Request *req)
 
     success = false;
     lenlen = sizeof(INTERNET_CACHE_ENTRY_INFOA) + MAX_URL_LENGTH + MAX_PATH;
-    cacheData = (INTERNET_CACHE_ENTRY_INFOA *)malloc(lenlen);
+    cacheData = malloc(lenlen);
 retry:
     if (!RetrieveUrlCacheEntryFileA(req->url, cacheData, &lenlen, 0)) {
         err = GetLastError();
         if (err == ERROR_INSUFFICIENT_BUFFER) {
-            cacheData = (INTERNET_CACHE_ENTRY_INFOA *)realloc(cacheData, lenlen);
+            cacheData = realloc(cacheData, lenlen);
             goto retry;
         }
         assert(err == ERROR_FILE_NOT_FOUND);
@@ -433,7 +433,7 @@ register_get_request(const char *url, bool doNotify, void *notifyData)
 
     assert(strlen(url) < MAX_URL_LENGTH);
 
-    req = (Request*)malloc(sizeof(Request));
+    req = malloc(sizeof(*req));
 
     *req = (Request){
         .notifyData = notifyData,
@@ -454,7 +454,7 @@ register_post_request(const char *url, bool doNotify, void *notifyData, uint32_t
     assert(strlen(url) < MAX_URL_LENGTH);
     assert(postDataLen < POST_DATA_SIZE);
 
-    req = (Request*)malloc(sizeof(Request));
+    req = malloc(sizeof(*req));
 
     *req = (Request){
         .notifyData = notifyData,
