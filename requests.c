@@ -467,7 +467,7 @@ register_post_request(const char *url, bool doNotify, void *notifyData, uint32_t
     };
     strncpy(req->url, url, MAX_URL_LENGTH);
     memcpy(req->postData, postData, postDataLen);
-    
+
     submit_request(req);
 }
 
