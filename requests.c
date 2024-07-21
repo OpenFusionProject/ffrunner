@@ -201,7 +201,7 @@ try_init_from_cache(Request *req)
 {
     DWORD lenlen;
     DWORD err;
-    HANDLE hCache, hFile;
+    HANDLE hFile;
     INTERNET_CACHE_ENTRY_INFOA *cacheData;
     bool success;
 
@@ -209,8 +209,7 @@ try_init_from_cache(Request *req)
     lenlen = sizeof(INTERNET_CACHE_ENTRY_INFOA) + MAX_URL_LENGTH + MAX_PATH;
     cacheData = (INTERNET_CACHE_ENTRY_INFOA *)malloc(lenlen);
 retry:
-    hCache = RetrieveUrlCacheEntryStreamA(req->url, cacheData, &lenlen, true, 0);
-    if (hCache == NULL) {
+    if (!RetrieveUrlCacheEntryFileA(req->url, cacheData, &lenlen, 0)) {
         err = GetLastError();
         if (err == ERROR_INSUFFICIENT_BUFFER) {
             cacheData = (INTERNET_CACHE_ENTRY_INFOA *)realloc(cacheData, lenlen);
@@ -231,9 +230,6 @@ retry:
     success = true;
 
 cleanup:
-    if (hCache != NULL) {
-        UnlockUrlCacheEntryStream(hCache, 0);
-    }
     free(cacheData);
     return success;
 }
