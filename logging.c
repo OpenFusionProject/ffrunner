@@ -1,12 +1,12 @@
 #include "ffrunner.h"
 
-#include <stdio.h>
-
 CRITICAL_SECTION cs;
 HANDLE logFile;
 bool initialized = false;
 
-void init_logging(const char *logPath) {
+void
+init_logging(const char *logPath)
+{
     InitializeCriticalSection(&cs);
     if (logPath != NULL) {
         logFile = CreateFileA(logPath, GENERIC_WRITE, FILE_SHARE_READ, NULL,
@@ -17,7 +17,9 @@ void init_logging(const char *logPath) {
     initialized = true;
 }
 
-void log(const char *fmt, ...) {
+void
+logmsg(const char *fmt, ...)
+{
     va_list args;
     char buf[4028];
     int len;
@@ -33,7 +35,6 @@ void log(const char *fmt, ...) {
     va_end(args);
 
     EnterCriticalSection(&cs);
-    printf("%s", buf);
     if (logFile != INVALID_HANDLE_VALUE) {
         WriteFile(logFile, buf, len, &written, NULL);
     }
