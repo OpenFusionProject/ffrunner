@@ -203,9 +203,13 @@ try_init_from_cache(Request *req)
     DWORD err;
     HANDLE hFile;
     INTERNET_CACHE_ENTRY_INFOA *cacheData;
+    HINTERNET hUrl;
+    SYSTEMTIME modifiedTimeSys;
+    FILETIME modifiedTimeFile;
     bool success;
 
     success = false;
+    hUrl = NULL;
     lenlen = sizeof(INTERNET_CACHE_ENTRY_INFOA) + MAX_URL_LENGTH + MAX_PATH;
     cacheData = malloc(lenlen);
 retry:
@@ -216,6 +220,16 @@ retry:
             goto retry;
         }
         assert(err == ERROR_FILE_NOT_FOUND);
+        goto cleanup;
+    }
+
+    /* If we have internet, check the last modified time of the resource. If it's newer than what we have cached, bail. */
+    hUrl = InternetOpenUrlA(hInternet, req->url, NULL, 0, 0, (DWORD_PTR)NULL);
+    lenlen = sizeof(modifiedTimeSys);
+    if (hUrl != NULL
+        && HttpQueryInfoA(hUrl, HTTP_QUERY_FLAG_SYSTEMTIME | HTTP_QUERY_LAST_MODIFIED, &modifiedTimeSys, &lenlen, 0)
+        && SystemTimeToFileTime(&modifiedTimeSys, &modifiedTimeFile)
+        && CompareFileTime(&modifiedTimeFile, &cacheData->LastModifiedTime) == 1) {
         goto cleanup;
     }
 
@@ -230,6 +244,9 @@ retry:
     success = true;
 
 cleanup:
+    if (hUrl != NULL) {
+        InternetCloseHandle(hUrl);
+    }
     free(cacheData);
     return success;
 }
@@ -243,7 +260,7 @@ init_request_http(Request *req, char *hostname, char *filePath, LPURL_COMPONENTS
 
     PCTSTR verb = req->isPost ? "POST" : "GET";
     PCTSTR acceptedTypes[2] = { req->mimeType, NULL };
-    DWORD flags = 0;
+    DWORD flags = INTERNET_FLAG_RESYNCHRONIZE;
 
     /* for post */
     LPSTR headers = NULL;
