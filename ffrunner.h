@@ -29,7 +29,6 @@
 #define ARRLEN(x) (sizeof(x)/sizeof(*x))
 #define MIN(a, b) (a > b ? b : a)
 
-extern DWORD mainThreadId;
 extern NPP_t npp;
 extern NPPluginFuncs pluginFuncs;
 extern NPNetscapeFuncs netscapeFuncs;

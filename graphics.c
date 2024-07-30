@@ -8,6 +8,8 @@ window_proc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
     UINT width, height;
     PAINTSTRUCT ps;
     HDC hdc;
+    Request *req;
+    bool done;
 
     switch (uMsg) {
     case WM_CLOSE:
@@ -31,6 +33,17 @@ window_proc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
         npWin.width = npWin.clipRect.right = width;
         npWin.height = npWin.clipRect.bottom = height;
         pluginFuncs.setwindow(&npp, &npWin);
+        return 0;
+    }
+
+    if (uMsg == ioMsg) {
+        req = (Request*)lParam;
+        done = handle_io_progress(req);
+        if (done) {
+            free(req);
+        } else {
+            SetEvent(req->readyEvent);
+        }
         return 0;
     }
 
@@ -75,17 +88,7 @@ message_loop(void)
     MSG msg = {0};
 
     while (GetMessage(&msg, NULL, 0, 0) > 0) {
-        if (msg.message == ioMsg) {
-            req = (Request*)msg.lParam;
-            done = handle_io_progress(req);
-            if (done) {
-                free(req);
-            } else {
-                SetEvent(req->readyEvent);
-            }
-        } else {
-            TranslateMessage(&msg);
-            DispatchMessage(&msg);
-        }
+        TranslateMessage(&msg);
+        DispatchMessage(&msg);
     }
 }

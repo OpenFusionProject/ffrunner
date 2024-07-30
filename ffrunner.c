@@ -1,6 +1,5 @@
 #include "ffrunner.h"
 
-DWORD mainThreadId;
 NPP_t npp;
 NPPluginFuncs pluginFuncs;
 NPNetscapeFuncs netscapeFuncs;
@@ -463,8 +462,6 @@ main(int argc, char **argv)
     NPError ret;
     HMODULE loader;
     RECT winRect;
-
-    mainThreadId = GetCurrentThreadId();
 
     init_logging(LOG_FILE_PATH);
 

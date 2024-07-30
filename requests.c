@@ -427,7 +427,7 @@ handle_request(PTP_CALLBACK_INSTANCE inst, void *reqArg, PTP_WORK work)
         if (!req->failed) {
             progress_request(req);
         }
-        PostThreadMessage(mainThreadId, ioMsg, (WPARAM)NULL, (LPARAM)req);
+        PostMessage(hwnd, ioMsg, (WPARAM)NULL, (LPARAM)req);
         WaitForSingleObject(req->readyEvent, INFINITE);
     }
 }
