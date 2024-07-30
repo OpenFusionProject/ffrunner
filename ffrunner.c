@@ -8,6 +8,10 @@ NPSavedData saved;
 NPObject browserObject;
 NPClass browserClass;
 NPWindow npWin;
+NPObject *scriptableObject;
+
+char *tegId;
+char *authId;
 
 #define NPIDENTIFIERCOUNT 32
 #define NPSTRINGMAXSIZE 128
@@ -213,6 +217,37 @@ get_navigation_target(const char *script)
     return found + sizeof(NAVIGATE_SCRIPT) - 1;
 }
 
+void
+unity_send_message(const char *class, const char *msg, NPVariant val)
+{
+    NPVariant args[3];
+    NPVariant ret;
+
+    assert(scriptableObject->_class);
+    assert(scriptableObject->_class->hasMethod(scriptableObject, getNPIdentifier("SendMessage")));
+
+    STRINGZ_TO_NPVARIANT(class, args[0]);
+    STRINGZ_TO_NPVARIANT(msg, args[1]);
+    args[2] = val;
+    scriptableObject->_class->invoke(scriptableObject, getNPIdentifier("SendMessage"), args, ARRLEN(args), &ret);
+}
+
+void
+auth(char *username, char *password)
+{
+    NPVariant val;
+    logmsg("Auto-auth as %s\n", username);
+
+    STRINGZ_TO_NPVARIANT(username, val);
+    unity_send_message("GlobalManager", "SetTEGid", val);
+
+    STRINGZ_TO_NPVARIANT(password, val);
+    unity_send_message("GlobalManager", "SetAuthid", val);
+
+    INT32_TO_NPVARIANT(0, val);
+    unity_send_message("GlobalManager", "DoAuth", val);
+}
+
 bool
 NPN_EvaluateProc(NPP npp, NPObject *obj, NPString *script, NPVariant *result)
 {
@@ -224,12 +259,17 @@ NPN_EvaluateProc(NPP npp, NPObject *obj, NPString *script, NPVariant *result)
     if (strncmp(script->UTF8Characters, EXIT_CALLBACK_SCRIPT, sizeof(EXIT_CALLBACK_SCRIPT)) == 0) {
         /* Gracefully exit game. */
         PostQuitMessage(0);
-    }
-
-    /* If navigation, handle */
-    navigationTarget = get_navigation_target(script->UTF8Characters);
-    if (navigationTarget != NULL) {
-        handle_navigation(navigationTarget);
+    } else if (strncmp(script->UTF8Characters, AUTH_CALLBACK_SCRIPT, sizeof(AUTH_CALLBACK_SCRIPT)) == 0) {
+        /* Execute authentication callback */
+        if (tegId != NULL && authId != NULL) {
+            auth(tegId, authId);
+        }
+    } else {
+        /* If navigation, handle */
+        navigationTarget = get_navigation_target(script->UTF8Characters);
+        if (navigationTarget != NULL) {
+            handle_navigation(navigationTarget);
+        }
     }
 
     *result = (NPVariant){
@@ -421,7 +461,6 @@ main(int argc, char **argv)
     DWORD err;
     char cwd[MAX_PATH];
     NPError ret;
-    NPObject *scriptableObject;
     HMODULE loader;
     RECT winRect;
 
@@ -435,6 +474,14 @@ main(int argc, char **argv)
     } else {
         srcUrl = argv[1];
         logmsg("Using %s\n", srcUrl);
+    }
+
+    if (argc >= 4) {
+        tegId = argv[2];
+        authId = argv[3];
+    } else {
+        tegId = NULL;
+        authId = NULL;
     }
 
     if (GetCurrentDirectory(MAX_PATH, cwd)) {
