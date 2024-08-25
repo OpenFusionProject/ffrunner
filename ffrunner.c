@@ -178,7 +178,8 @@ NPN_GetValueProc(NPP instance, NPNVariable variable, void *ret_value)
 }
 
 #define AUTH_CALLBACK_SCRIPT "authDoCallback(\"UnityEngine.GameObject\");"
-#define EXIT_CALLBACK_SCRIPT "HomePage(\"UnityEngine.GameObject\");"
+#define HOMEPAGE_CALLBACK_SCRIPT "HomePage(\"UnityEngine.GameObject\");"
+#define PAGEOUT_CALLBACK_SCRIPT "PageOut(\"UnityEngine.GameObject\");"
 #define NAVIGATE_SCRIPT "location.href=\""
 
 #define TARGET_REGISTER "https://audience.fusionfall.com/ff/regWizard.do?_flowId=fusionfall-registration-flow"
@@ -255,7 +256,8 @@ NPN_EvaluateProc(NPP npp, NPObject *obj, NPString *script, NPVariant *result)
     logmsg("< NPN_EvaluateProc %s\n", script->UTF8Characters);
 
     /* Evaluates JS calls, like MarkProgress(1), most of which doesn't need to do anything. */
-    if (strncmp(script->UTF8Characters, EXIT_CALLBACK_SCRIPT, sizeof(EXIT_CALLBACK_SCRIPT)) == 0) {
+    if (strncmp(script->UTF8Characters, HOMEPAGE_CALLBACK_SCRIPT, sizeof(HOMEPAGE_CALLBACK_SCRIPT)) == 0
+        || strncmp(script->UTF8Characters, PAGEOUT_CALLBACK_SCRIPT, sizeof(PAGEOUT_CALLBACK_SCRIPT)) == 0) {
         /* Gracefully exit game. */
         PostQuitMessage(0);
     } else if (strncmp(script->UTF8Characters, AUTH_CALLBACK_SCRIPT, sizeof(AUTH_CALLBACK_SCRIPT)) == 0) {
