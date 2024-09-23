@@ -187,6 +187,9 @@ handle_io_progress(Request *req)
             if (req->handles.http.hConn != NULL) {
                 InternetCloseHandle(req->handles.http.hConn);
             }
+            if (req->handles.http.hCache != INVALID_HANDLE_VALUE) {
+                CloseHandle(req->handles.http.hCache);
+            }
         }
 
         nRequests--;
@@ -240,7 +243,7 @@ try_init_from_cache(Request *req)
     DWORD lenlen;
     DWORD err;
     char cacheFilePath[MAX_PATH];
-    DWORD cacheFileSz;
+    DWORD cacheFileSz, remoteFileSz;
     HANDLE hFile;
     HINTERNET hUrl;
     SYSTEMTIME modifiedTimeSys;
@@ -284,14 +287,23 @@ try_init_from_cache(Request *req)
         goto cleanup;
     }
 
-    /* If we have internet, check the last modified time of the resource. If it's newer than what we have cached, bail. */
+    /* If we have internet... */
     hUrl = InternetOpenUrlA(hInternet, req->url, NULL, 0, 0, (DWORD_PTR)NULL);
-    lenlen = sizeof(modifiedTimeSys);
-    if (hUrl != NULL
-        && HttpQueryInfoA(hUrl, HTTP_QUERY_FLAG_SYSTEMTIME | HTTP_QUERY_LAST_MODIFIED, &modifiedTimeSys, &lenlen, 0)
-        && SystemTimeToFileTime(&modifiedTimeSys, &modifiedTimeRemote)
-        && CompareFileTime(&modifiedTimeRemote, &modifiedTimeLocal) == 1) {
-        goto cleanup;
+    if (hUrl != NULL) {
+        /* Check the size of the remote resource. If it's not the same as the cached file size, bail. */
+        lenlen = sizeof(remoteFileSz);
+        if (HttpQueryInfoA(hUrl, HTTP_QUERY_FLAG_NUMBER | HTTP_QUERY_CONTENT_LENGTH, &remoteFileSz, &lenlen, 0)
+            && remoteFileSz != cacheFileSz) {
+            goto cleanup;
+        }
+
+        /* Check the last modified time of the resource. If it's newer than what we have cached, bail. */
+        lenlen = sizeof(modifiedTimeSys);
+        if (HttpQueryInfoA(hUrl, HTTP_QUERY_FLAG_SYSTEMTIME | HTTP_QUERY_LAST_MODIFIED, &modifiedTimeSys, &lenlen, 0)
+            && SystemTimeToFileTime(&modifiedTimeSys, &modifiedTimeRemote)
+            && CompareFileTime(&modifiedTimeRemote, &modifiedTimeLocal) == 1) {
+            goto cleanup;
+        }
     }
 
     req->handles.hFile = hFile;
@@ -320,6 +332,9 @@ init_request_http(Request *req, char *hostname, char *filePath, INTERNET_SCHEME 
     DWORD err;
     DWORD status;
 
+    char cacheFilePath[MAX_PATH];
+    HFILE hCacheFile;
+
     PCTSTR verb = req->isPost ? "POST" : "GET";
     PCTSTR acceptedTypes[2] = { req->mimeType, NULL };
     DWORD flags = INTERNET_FLAG_RESYNCHRONIZE;
@@ -331,13 +346,13 @@ init_request_http(Request *req, char *hostname, char *filePath, INTERNET_SCHEME 
     DWORD payloadSz = 0;
 
     if (!req->isPost) {
-        /*
-         * HACK: Wine's implementation of wininet doesn't support
-         * transparently reading from the cache, so we attempt to
-         * explicitly read from it before falling back to HTTP.
-         */
         if (try_init_from_cache(req)) {
             return;
+        }
+
+        /* we want to cache the result of this, so open a handle to the cache */
+        if (get_cache_file_path_for_url(cacheFilePath, req->url)) {
+            req->handles.http.hCache = CreateFileA(cacheFilePath, GENERIC_WRITE, 0, NULL, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL);
         }
     }
 
@@ -489,6 +504,8 @@ progress_request(Request *req)
 {
     assert(req->source != REQ_SRC_UNSET);
 
+    DWORD cacheBytesWritten;
+
     if (req->writePtr != req->writeSize) {
         /* waiting for plugin to consume bytes */
         return;
@@ -508,6 +525,14 @@ progress_request(Request *req)
         if (!InternetReadFile(req->handles.http.hReq, req->buf, REQUEST_BUFFER_SIZE, &req->writeSize)) {
             cancel_request(req);
             return;
+        }
+
+        /* also write to cache */
+        if (!WriteFile(req->handles.http.hCache, req->buf, req->writeSize, &cacheBytesWritten, NULL)) {
+            /* give up on caching. the size mismatch will invalidate it. */
+            logmsg("Failed to write bytes to cache for %s\n", req->url);
+            CloseHandle(req->handles.http.hCache);
+            req->handles.http.hCache = INVALID_HANDLE_VALUE;
         }
         break;
     case REQ_SRC_MEMORY:

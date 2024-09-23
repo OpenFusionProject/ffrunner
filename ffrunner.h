@@ -84,6 +84,7 @@ struct Request {
         struct {
             HINTERNET hConn;
             HINTERNET hReq;
+            HANDLE hCache;
         } http;
         char *hData;
     } handles;
