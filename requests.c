@@ -337,7 +337,7 @@ init_request_http(Request *req, char *hostname, char *filePath, INTERNET_SCHEME 
 
     PCTSTR verb = req->isPost ? "POST" : "GET";
     PCTSTR acceptedTypes[2] = { req->mimeType, NULL };
-    DWORD flags = INTERNET_FLAG_RESYNCHRONIZE;
+    DWORD flags = INTERNET_FLAG_RELOAD;
 
     /* for post */
     LPSTR headers = NULL;
