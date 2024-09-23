@@ -5,6 +5,7 @@ NPP_t npp;
 NPPluginFuncs pluginFuncs;
 NPNetscapeFuncs netscapeFuncs;
 NPSavedData saved;
+NPSavedData *savedPtr;
 NPObject browserObject;
 NPClass browserClass;
 NPWindow npWin;
@@ -666,8 +667,10 @@ main(int argc, char **argv)
     };
     assert(ARRLEN(argn) == ARRLEN(argp));
 
+    savedPtr = &saved;
+
     logmsg("> NPP_NewProc\n");
-    ret = pluginFuncs.newp("application/vnd.ffuwp", &npp, 1, ARRLEN(argn), argn, argp, &saved);
+    ret = pluginFuncs.newp("application/vnd.ffuwp", &npp, 1, ARRLEN(argn), argn, argp, savedPtr);
     logmsg("returned %d\n", ret);
 
     ShowWindow(hwnd, SW_SHOWDEFAULT);
@@ -709,6 +712,10 @@ main(int argc, char **argv)
     logmsg("returned %d\n", ret);
 
     message_loop();
+
+    logmsg("> NPP_DestroyProc\n");
+    ret = pluginFuncs.destroy(&npp, &savedPtr);
+    logmsg("returned %d\n", ret);
 
     return 0;
 }
