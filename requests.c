@@ -223,30 +223,64 @@ fail:
     cancel_request(req);
 }
 
+bool get_cache_file_path_for_url(char *buf, const char *url) {
+    char *fileName;
+    int pathLen = sizeof(HTTP_CACHE_PATH) - 1;
+
+    /* prefix with cache path */
+    strcpy(buf, HTTP_CACHE_PATH);
+
+    fileName = buf + pathLen;
+    return bytes_to_hex(fileName, MAX_PATH - pathLen, url);
+}
+
 bool
 try_init_from_cache(Request *req)
 {
     DWORD lenlen;
     DWORD err;
+    char cacheFilePath[MAX_PATH];
+    DWORD cacheFileSz;
     HANDLE hFile;
-    INTERNET_CACHE_ENTRY_INFOA *cacheData;
     HINTERNET hUrl;
     SYSTEMTIME modifiedTimeSys;
-    FILETIME modifiedTimeFile;
+    FILETIME modifiedTimeRemote, modifiedTimeLocal;
     bool success;
 
     success = false;
     hUrl = NULL;
-    lenlen = sizeof(INTERNET_CACHE_ENTRY_INFOA) + MAX_URL_LENGTH + MAX_PATH;
-    cacheData = malloc(lenlen);
-retry:
-    if (!RetrieveUrlCacheEntryFileA(req->url, cacheData, &lenlen, 0)) {
+    hFile = INVALID_HANDLE_VALUE;
+
+    /* create the cache dir if it doesn't exist yet */
+    CreateDirectoryA(HTTP_CACHE_PATH, NULL);
+
+    if (!get_cache_file_path_for_url(cacheFilePath, req->url)) {
+        goto cleanup;
+    }
+    //logmsg("For URL:\n%s\nchecking cache for:\n%s\n", req->url, cacheFilePath);
+
+    /* open the cache file */
+    hFile = CreateFileA(cacheFilePath, GENERIC_READ, FILE_SHARE_READ, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
+    if (hFile == INVALID_HANDLE_VALUE) {
         err = GetLastError();
-        if (err == ERROR_INSUFFICIENT_BUFFER) {
-            cacheData = realloc(cacheData, lenlen);
-            goto retry;
+        if (err != ERROR_FILE_NOT_FOUND) {
+            logmsg("Error reading %s from cache: %d\n", req->url, err);
         }
-        assert(err == ERROR_FILE_NOT_FOUND);
+        goto cleanup;
+    }
+
+    /* read size for size hint */
+    lenlen = GetFileSize(hFile, NULL);
+    if (lenlen == INVALID_FILE_SIZE) {
+        logmsg("Couldn't read size of cache file for %s\n", req->url);
+        goto cleanup;
+    }
+    cacheFileSz = lenlen;
+
+    /* read last modified time for comparison with remote */
+    if (!GetFileTime(hFile, NULL, NULL, &modifiedTimeLocal)) {
+        err = GetLastError();
+        logmsg("Couldn't get last modified time of cache file for %s: %d\n", req->url, err);
         goto cleanup;
     }
 
@@ -255,26 +289,27 @@ retry:
     lenlen = sizeof(modifiedTimeSys);
     if (hUrl != NULL
         && HttpQueryInfoA(hUrl, HTTP_QUERY_FLAG_SYSTEMTIME | HTTP_QUERY_LAST_MODIFIED, &modifiedTimeSys, &lenlen, 0)
-        && SystemTimeToFileTime(&modifiedTimeSys, &modifiedTimeFile)
-        && CompareFileTime(&modifiedTimeFile, &cacheData->LastModifiedTime) == 1) {
-        goto cleanup;
-    }
-
-    hFile = CreateFileA(cacheData->lpszLocalFileName, GENERIC_READ, FILE_SHARE_READ, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
-    if (hFile == INVALID_HANDLE_VALUE) {
+        && SystemTimeToFileTime(&modifiedTimeSys, &modifiedTimeRemote)
+        && CompareFileTime(&modifiedTimeRemote, &modifiedTimeLocal) == 1) {
         goto cleanup;
     }
 
     req->handles.hFile = hFile;
     req->source = REQ_SRC_CACHE;
-    req->sizeHint = cacheData->dwSizeLow;
+    req->sizeHint = cacheFileSz;
     success = true;
 
 cleanup:
     if (hUrl != NULL) {
         InternetCloseHandle(hUrl);
     }
-    free(cacheData);
+
+    // we use the file handle for streaming on success,
+    // so only close if we're failing out
+    if (hFile != INVALID_HANDLE_VALUE && !success) {
+        CloseHandle(hFile);
+    }
+
     return success;
 }
 

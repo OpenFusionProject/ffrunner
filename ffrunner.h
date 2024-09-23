@@ -31,6 +31,8 @@
 #define FALLBACK_SRC_URL "http://cdn.dexlabs.systems/ff/big/beta-20100104/main.unity3d"
 #define FALLBACK_ASSET_URL "http://cdn.dexlabs.systems/ff/big/beta-20100104/"
 #define FALLBACK_SERVER_ADDRESS "127.0.0.1:23000"
+#define FALLBACK_RANK_URL "http://api.dexlabs.systems/getranks"
+#define HTTP_CACHE_PATH ".cache\\"
 
 #define ARRLEN(x) (sizeof(x)/sizeof(*x))
 #define MIN(a, b) (a > b ? b : a)
@@ -129,3 +131,21 @@ void apply_vram_fix(void);
 void init_logging(const char *logPath, bool verbose);
 void dbglogmsg(const char *fmt, ...);
 void logmsg(const char *fmt, ...);
+
+inline bool bytes_to_hex(char *buf, int bufSz, const char *src) {
+    int i, sz;
+    char *target;
+
+    sz = strlen(src);
+    if (sz * 2 + 1 >= bufSz) {
+        logmsg("bytes_to_hex: buffer not big enough\n");
+        return false;
+    }
+
+    for (i = 0; i < sz; i ++) {
+        target = buf + 2 * i;
+        sprintf(target, "%02x", src[i]);
+    }
+
+    return true;
+}
