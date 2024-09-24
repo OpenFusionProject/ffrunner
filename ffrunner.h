@@ -132,21 +132,3 @@ void apply_vram_fix(void);
 void init_logging(const char *logPath, bool verbose);
 void dbglogmsg(const char *fmt, ...);
 void logmsg(const char *fmt, ...);
-
-inline bool bytes_to_hex(char *buf, int bufSz, const char *src) {
-    int i, sz;
-    char *target;
-
-    sz = strlen(src);
-    if (sz * 2 + 1 >= bufSz) {
-        logmsg("bytes_to_hex: buffer not big enough\n");
-        return false;
-    }
-
-    for (i = 0; i < sz; i ++) {
-        target = buf + 2 * i;
-        sprintf(target, "%02x", src[i]);
-    }
-
-    return true;
-}

@@ -9,6 +9,26 @@ char *srcUrl;
 size_t nRequests;
 bool mainLoaded;
 
+bool
+bytes_to_hex(char *buf, int bufSz, const char *src)
+{
+    int i, sz;
+    char *target;
+
+    sz = strlen(src);
+    if (sz * 2 + 1 >= bufSz) {
+        logmsg("bytes_to_hex: buffer not big enough\n");
+        return false;
+    }
+
+    for (i = 0; i < sz; i ++) {
+        target = buf + 2 * i;
+        sprintf(target, "%02x", src[i]);
+    }
+
+    return true;
+}
+
 char *
 get_post_payload(const char *buf)
 {
@@ -226,7 +246,9 @@ fail:
     cancel_request(req);
 }
 
-bool get_cache_file_path_for_url(char *buf, const char *url) {
+bool
+get_cache_file_path_for_url(char *buf, const char *url)
+{
     char *fileName;
     int pathLen = sizeof(HTTP_CACHE_PATH) - 1;
 
