@@ -1,11 +1,5 @@
 #include "ffrunner.h"
 
-#ifdef DEBUG
-    #define DEBUG_LOG(fmt, ...) log(fmt, __VA_ARGS__)
-#else
-    #define DEBUG_LOG(fmt, ...) ;
-#endif
-
 #define POST_PAYLOAD_DIVIDER "\r\n\r\n"
 
 PTP_POOL threadpool;
@@ -108,11 +102,11 @@ handle_io_progress(Request *req)
     bytesAvailable = req->writeSize - req->writePtr;
     if (req->stream && bytesAvailable > 0) {
         /* streaming in progress AND data available */
-        DEBUG_LOG("> NPP_WriteReady %s %d\n", req->url, bytesAvailable);
+        dbglogmsg("> NPP_WriteReady %s %d\n", req->url, bytesAvailable);
         writeSize = pluginFuncs.writeready(&npp, req->stream);
         writeSize = MIN(writeSize, bytesAvailable);
 
-        DEBUG_LOG("> NPP_Write %s %d\n", req->url, writeSize);
+        dbglogmsg("> NPP_Write %s %d\n", req->url, writeSize);
         dataPtr = req->buf + req->writePtr;
         bytesConsumed = pluginFuncs.write(&npp, req->stream, req->bytesWritten, writeSize, dataPtr);
         if (bytesConsumed < 0) {

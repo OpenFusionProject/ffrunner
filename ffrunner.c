@@ -1,4 +1,5 @@
 #include "ffrunner.h"
+#include "arg.h"
 
 NPP_t npp;
 NPPluginFuncs pluginFuncs;
@@ -9,8 +10,7 @@ NPClass browserClass;
 NPWindow npWin;
 NPObject *scriptableObject;
 
-char *tegId;
-char *authId;
+Arguments args = { 0 };
 
 #define NPIDENTIFIERCOUNT 32
 #define NPSTRINGMAXSIZE 128
@@ -262,8 +262,8 @@ NPN_EvaluateProc(NPP npp, NPObject *obj, NPString *script, NPVariant *result)
         PostQuitMessage(0);
     } else if (strncmp(script->UTF8Characters, AUTH_CALLBACK_SCRIPT, sizeof(AUTH_CALLBACK_SCRIPT)) == 0) {
         /* Execute authentication callback */
-        if (tegId != NULL && authId != NULL) {
-            auth(tegId, authId);
+        if (args.tegId != NULL && args.authId != NULL) {
+            auth(args.tegId, args.authId);
         }
     } else {
         /* If navigation, handle */
@@ -455,6 +455,68 @@ initNetscapeFuncs(void)
     netscapeFuncs.getstringidentifiers = NPN_GetStringIdentifiersProc;
 }
 
+void
+parse_args(int argc, char **argv)
+{
+    ARG_BEGIN {
+        if (ARG_LONG("verbose")) case 'v': {
+            args.verboseLogging = true;
+            ARG_FLAG();
+        } else if (ARG_LONG("main")) case 'm': {
+            args.mainPathOrAddress = ARG_VAL();
+        } else if (ARG_LONG("log")) case 'l': {
+            args.logPath = ARG_VAL();
+        } else if (ARG_LONG("address")) case 'a': {
+            args.serverAddress = ARG_VAL();
+        } else if (ARG_LONG("asseturl")) {
+            args.assetUrl = ARG_VAL();
+        } else if (ARG_LONG("rankurl")) case 'r': {
+            args.rankUrl = ARG_VAL();
+        } else if (ARG_LONG("images")) case 'i': {
+            args.imagesUrl = ARG_VAL();
+        } else if (ARG_LONG("sponsor")) case 's': {
+            args.sponsorImageUrl = ARG_VAL();
+        } else if (ARG_LONG("username")) case 'u': {
+            args.tegId = ARG_VAL();
+        } else if (ARG_LONG("token")) case 't': {
+            args.authId = ARG_VAL();
+        } else if (ARG_LONG("help")) case 'h': {
+            printf("Usage: ffrunner.exe [OPTION...]\n");
+            puts("  -m, --main=STR      The main URL to load");
+            puts("  -l, --log=STR       The path to the log file");
+            puts("  -v, --verbose       Enable verbose logging");
+            puts("  -a, --address=STR   The address of the server");
+            puts("  -r, --rankurl=STR   The rank endpoint URL");
+            puts("  -i, --images=STR    The images endpoint URL");
+            puts("  -s, --sponsor=STR   The sponsor image URL");
+            puts("  -u, --username=STR  Username for auto-login");
+            puts("  -t, --token=STR     Password or token for auto-login");
+            puts("  -h, --help          Display this");
+            puts("");
+            exit(0);
+        }
+    } ARG_END;
+
+    if (args.logPath == NULL) {
+        args.logPath = LOG_FILE_PATH;
+    }
+}
+
+void
+print_args()
+{
+    printf("main: %s\n", args.mainPathOrAddress);
+    printf("log: %s\n", args.logPath);
+    printf("verbose: %s\n", args.verboseLogging ? "true" : "false");
+    printf("address: %s\n", args.serverAddress);
+    printf("asseturl: %s\n", args.assetUrl);
+    printf("rankurl: %s\n", args.rankUrl);
+    printf("images: %s\n", args.imagesUrl);
+    printf("sponsor: %s\n", args.sponsorImageUrl);
+    printf("username: %s\n", args.tegId);
+    printf("token: %s\n", args.authId);
+}
+
 int
 main(int argc, char **argv)
 {
@@ -465,22 +527,18 @@ main(int argc, char **argv)
     HMODULE loader;
     RECT winRect;
 
-    init_logging(LOG_FILE_PATH);
+    parse_args(argc, argv);
+    print_args();
+    init_logging(args.logPath, args.verboseLogging);
 
-    if (argc < 2) {
-        srcUrl = FALLBACK_SRC_URL;
-        logmsg("No source URL specified, using %s\n", srcUrl);
-    } else {
-        srcUrl = argv[1];
-        logmsg("Using %s\n", srcUrl);
+    if (args.serverAddress == NULL) {
+        logmsg("No server address provided.");
+        exit(1);
     }
 
-    if (argc >= 4) {
-        tegId = argv[2];
-        authId = argv[3];
-    } else {
-        tegId = NULL;
-        authId = NULL;
+    if (args.assetUrl == NULL) {
+        logmsg("No asset URL provided.");
+        exit(1);
     }
 
     if (GetCurrentDirectory(MAX_PATH, cwd)) {

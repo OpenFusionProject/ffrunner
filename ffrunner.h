@@ -52,6 +52,7 @@ enum {
 
 typedef uint8_t RequestSource;
 typedef struct Request Request;
+typedef struct Arguments Arguments;
 
 struct Request {
     /* params */
@@ -87,6 +88,19 @@ struct Request {
     } handles;
 };
 
+struct Arguments {
+    char *mainPathOrAddress;
+    char *logPath;
+    bool verboseLogging;
+    char *serverAddress;
+    char *assetUrl;
+    char *rankUrl;
+    char *imagesUrl;
+    char *sponsorImageUrl;
+    char *tegId;
+    char *authId;
+};
+
 void register_get_request(const char *url, bool doNotify, void *notifyData);
 void register_post_request(const char *url, bool doNotify, void *notifyData, uint32_t postDataLen, const char *postData);
 bool handle_io_progress(Request *req);
@@ -98,5 +112,6 @@ void show_error_dialog(char *msg);
 void open_link(char *url);
 void message_loop(void);
 
-void init_logging(const char *logPath);
+void init_logging(const char *logPath, bool verbose);
+void dbglogmsg(const char *fmt, ...);
 void logmsg(const char *fmt, ...);
