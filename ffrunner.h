@@ -29,16 +29,6 @@
 #define ARRLEN(x) (sizeof(x)/sizeof(*x))
 #define MIN(a, b) (a > b ? b : a)
 
-extern NPP_t npp;
-extern NPPluginFuncs pluginFuncs;
-extern NPNetscapeFuncs netscapeFuncs;
-extern NPWindow npWin;
-
-extern HWND hwnd;
-
-extern PTP_POOL threadpool;
-extern UINT ioMsg;
-
 typedef NPError     (OSCALL *NP_GetEntryPointsFuncOS)(NPPluginFuncs*);
 typedef NPError     (OSCALL *NP_InitializeFuncOS)(NPNetscapeFuncs*);
 typedef NPError     (OSCALL *NP_ShutdownFuncOS)(void);
@@ -47,7 +37,8 @@ enum {
     REQ_SRC_UNSET,
     REQ_SRC_FILE,
     REQ_SRC_HTTP,
-    REQ_SRC_CACHE
+    REQ_SRC_CACHE,
+    REQ_SRC_MEMORY
 };
 
 typedef uint8_t RequestSource;
@@ -85,6 +76,7 @@ struct Request {
             HINTERNET hConn;
             HINTERNET hReq;
         } http;
+        char *hData;
     } handles;
 };
 
@@ -100,6 +92,17 @@ struct Arguments {
     char *tegId;
     char *authId;
 };
+
+extern Arguments args;
+extern NPP_t npp;
+extern NPPluginFuncs pluginFuncs;
+extern NPNetscapeFuncs netscapeFuncs;
+extern NPWindow npWin;
+
+extern HWND hwnd;
+
+extern PTP_POOL threadpool;
+extern UINT ioMsg;
 
 void register_get_request(const char *url, bool doNotify, void *notifyData);
 void register_post_request(const char *url, bool doNotify, void *notifyData, uint32_t postDataLen, const char *postData);

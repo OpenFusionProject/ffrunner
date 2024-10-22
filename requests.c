@@ -41,6 +41,32 @@ get_mime_type(char *fileName)
     return "application/octet-stream";
 }
 
+struct {
+    char *url;
+    char **data;
+} IN_MEMORY_SOURCES[] = {
+    { "loginInfo.php", &args.serverAddress },
+    { "assetInfo.php", &args.assetUrl },
+    { "rankurl.txt", &args.rankUrl },
+    { "images.php", &args.imagesUrl },
+    { "sponsor.png", &args.sponsorImageUrl },
+};
+
+char *
+get_in_memory_data(char *url)
+{
+    char *data;
+    for (int i = 0; i < ARRLEN(IN_MEMORY_SOURCES); i++) {
+        if (strcmp(url, IN_MEMORY_SOURCES[i].url) == 0) {
+            data = *IN_MEMORY_SOURCES[i].data;
+            if (data != NULL) {
+                return data;
+            }
+        }
+    }
+    return NULL;
+}
+
 char *
 get_file_name(char *url)
 {
@@ -170,11 +196,6 @@ init_request_file(Request *req)
     char redirectPath[MAX_PATH];
 
     req->handles.hFile = CreateFileA(req->url, GENERIC_READ, FILE_SHARE_READ, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
-    if (req->handles.hFile == INVALID_HANDLE_VALUE) {
-        /* Check the assets folder */
-        snprintf(redirectPath, MAX_PATH, "assets/%s", req->url);
-        req->handles.hFile = CreateFileA(redirectPath, GENERIC_READ, FILE_SHARE_READ, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
-    }
     if (req->handles.hFile == INVALID_HANDLE_VALUE) {
         goto fail;
     }
@@ -343,6 +364,7 @@ init_request(Request *req)
     char hostname[MAX_URL_LENGTH];
     char filePath[MAX_URL_LENGTH];
     char *fileName;
+    char *inMemoryData;
 
     assert(req->source == REQ_SRC_UNSET);
     assert(req->url != NULL);
@@ -350,6 +372,16 @@ init_request(Request *req)
     /* setup state */
     fileName = get_file_name(req->url);
     req->mimeType = get_mime_type(fileName);
+
+    /* check for in-memory source first */
+    inMemoryData = get_in_memory_data(req->url);
+    if (inMemoryData != NULL) {
+        dbglogmsg("in-memory data\nurl: %s\ndata: %s\n", req->url, inMemoryData);
+        req->source = REQ_SRC_MEMORY;
+        req->handles.hData = inMemoryData;
+        req->sizeHint = strlen(inMemoryData);
+        return;
+    }
 
     /* determine whether the target is local or remote by the url */
     urlComponents = (URL_COMPONENTSA){
@@ -394,6 +426,12 @@ progress_request(Request *req)
         if (!InternetReadFile(req->handles.http.hReq, req->buf, REQUEST_BUFFER_SIZE, &req->writeSize)) {
             cancel_request(req);
             return;
+        }
+        break;
+    case REQ_SRC_MEMORY:
+        if (req->bytesWritten == 0) {
+            memcpy(req->buf, req->handles.hData, req->sizeHint);
+            req->writeSize = req->sizeHint;
         }
         break;
     default:
