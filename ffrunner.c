@@ -497,6 +497,10 @@ parse_args(int argc, char **argv)
         }
     } ARG_END;
 
+    if (args.mainPathOrAddress == NULL) {
+        args.mainPathOrAddress = FALLBACK_SRC_URL;
+    }
+
     if (args.logPath == NULL) {
         args.logPath = LOG_FILE_PATH;
     }
