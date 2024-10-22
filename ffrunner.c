@@ -486,6 +486,7 @@ parse_args(int argc, char **argv)
             puts("  -l, --log=STR       The path to the log file");
             puts("  -v, --verbose       Enable verbose logging");
             puts("  -a, --address=STR   The address of the server");
+            puts("      --asseturl=STR  The URL of the CDN for assets");
             puts("  -r, --rankurl=STR   The rank endpoint URL");
             puts("  -i, --images=STR    The images endpoint URL");
             puts("  -s, --sponsor=STR   The sponsor image URL");
@@ -575,6 +576,7 @@ main(int argc, char **argv)
     prepare_window();
     assert(hwnd);
 
+    srcUrl = args.mainPathOrAddress;
     init_network(srcUrl);
 
     logmsg("> NP_GetEntryPoints\n");
