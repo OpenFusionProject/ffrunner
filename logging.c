@@ -2,7 +2,7 @@
 
 CRITICAL_SECTION cs;
 HANDLE logFile;
-bool verbose;
+bool logVerbose;
 bool initialized = false;
 
 void
@@ -16,7 +16,7 @@ init_logging(const char *logPath, bool verbose)
         logFile = INVALID_HANDLE_VALUE;
     }
     initialized = true;
-    verbose = verbose;
+    logVerbose = verbose;
 }
 
 void
@@ -32,7 +32,7 @@ dbglogmsg(const char *fmt, ...)
         exit(1);
     }
 
-    if (!verbose) {
+    if (!logVerbose) {
         return;
     }
 
