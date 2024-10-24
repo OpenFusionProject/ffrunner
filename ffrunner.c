@@ -519,7 +519,7 @@ print_args()
     printf("images: %s\n", args.imagesUrl);
     printf("sponsor: %s\n", args.sponsorImageUrl);
     printf("username: %s\n", args.tegId);
-    printf("token: %s\n", args.authId);
+    printf("token: %s\n", args.authId == NULL ? "(null)" : "********");
 }
 
 int
