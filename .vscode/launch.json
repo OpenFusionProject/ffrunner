@@ -9,20 +9,36 @@
             "type": "cppvsdbg",
             "request": "launch",
             "program": "${command:cmake.launchTargetPath}",
-            "args": ["http://cdn.dexlabs.systems/ff/big/beta-20100104/main.unity3d"],
+            "args": [
+                "-v",
+                "-m", "http://cdn.dexlabs.systems/ff/big/beta-20100104/main.unity3d",
+                "--asseturl", "http://cdn.dexlabs.systems/ff/big/beta-20100104/",
+                "-a", "144.202.52.9:23000",
+                "-r", "http://api.dexlabs.systems/getranks"
+            ],
             "stopAtEntry": false,
             "cwd": "${workspaceFolder}",
-            "environment": []
+            "environment": [],
+            "console": "integratedTerminal"
         },
         {
             "name": "Debug (Academy)",
             "type": "cppvsdbg",
             "request": "launch",
             "program": "${command:cmake.launchTargetPath}",
-            "args": ["http://cdn.dexlabs.systems/ff/big/beta-20111013/main.unity3d"],
+            "args": [
+                "-v",
+                "-m", "http://cdn.dexlabs.systems/ff/big/beta-20111013/main.unity3d",
+                "--asseturl", "http://cdn.dexlabs.systems/ff/big/beta-20111013/",
+                "-a", "144.202.52.9:24000",
+                "-r", "http://api.dexlabs.systems/academy/getranks",
+                "-i", "http://api.dexlabs.systems/upsell/",
+                "-s", "http://api.dexlabs.systems/upsell/sponsor.png",
+            ],
             "stopAtEntry": false,
             "cwd": "${workspaceFolder}",
-            "environment": []
+            "environment": [],
+            "console": "integratedTerminal"
         }
     ]
 }
