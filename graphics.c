@@ -55,6 +55,7 @@ prepare_window(void)
 {
     WNDCLASS wc = {0};
     HICON hIcon;
+    int x, y;
 
     wc.lpfnWndProc   = window_proc;
     wc.hInstance     = GetModuleHandleA(NULL);
@@ -65,7 +66,10 @@ prepare_window(void)
 
     RegisterClass(&wc);
 
-    hwnd = CreateWindowExA(0, CLASS_NAME, "FusionFall", WS_OVERLAPPEDWINDOW, CW_USEDEFAULT, CW_USEDEFAULT, WIDTH, HEIGHT, 0, 0, GetModuleHandleA(0), 0);
+    x = (GetSystemMetrics(SM_CXSCREEN) - WIDTH) / 2;
+    y = (GetSystemMetrics(SM_CYSCREEN) - HEIGHT) / 2;
+
+    hwnd = CreateWindowExA(0, CLASS_NAME, "FusionFall", WS_OVERLAPPEDWINDOW, x, y, WIDTH, HEIGHT, 0, 0, GetModuleHandleA(0), 0);
 }
 
 void
