@@ -527,7 +527,7 @@ main(int argc, char **argv)
 {
     char* srcUrl;
     DWORD err;
-    char cwd[MAX_PATH];
+    wchar_t cwd[MAX_PATH];
     NPError ret;
     HMODULE loader;
     RECT winRect;
@@ -546,11 +546,11 @@ main(int argc, char **argv)
         exit(1);
     }
 
-    if (GetCurrentDirectory(MAX_PATH, cwd)) {
-        logmsg("setenv(\"%s\")\n", cwd);
-        SetEnvironmentVariable("UNITY_HOME_DIR", cwd);
+    if (GetCurrentDirectoryW(MAX_PATH, cwd)) {
+        logmsg("setenv(\"%ls\")\n", cwd);
+        SetEnvironmentVariableW(L"UNITY_HOME_DIR", cwd);
     }
-    SetEnvironmentVariable("UNITY_DISABLE_PLUGIN_UPDATES", "yes");
+    SetEnvironmentVariableA("UNITY_DISABLE_PLUGIN_UPDATES", "yes");
 
     initNetscapeFuncs();
     initBrowserObject();

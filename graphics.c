@@ -47,7 +47,7 @@ window_proc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
         return 0;
     }
 
-    return DefWindowProc(hwnd, uMsg, wParam, lParam);
+    return DefWindowProcA(hwnd, uMsg, wParam, lParam);
 }
 
 void
@@ -64,7 +64,7 @@ prepare_window(void)
     hIcon = LoadIcon(wc.hInstance, MAKEINTRESOURCE(0));
     wc.hIcon = hIcon;
 
-    RegisterClass(&wc);
+    RegisterClassA(&wc);
 
     x = (GetSystemMetrics(SM_CXSCREEN) - WIDTH) / 2;
     y = (GetSystemMetrics(SM_CYSCREEN) - HEIGHT) / 2;
@@ -93,6 +93,6 @@ message_loop(void)
 
     while (GetMessage(&msg, NULL, 0, 0) > 0) {
         TranslateMessage(&msg);
-        DispatchMessage(&msg);
+        DispatchMessageA(&msg);
     }
 }
