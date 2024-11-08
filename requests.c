@@ -114,6 +114,7 @@ handle_io_progress(Request *req)
     if (req->stream == NULL && !req->failed) {
         /* start streaming */
         req->stream = malloc(sizeof(*req->stream));
+        memset(req->stream, 0, sizeof(*req->stream));
         req->stream->url = req->url;
         req->stream->end = req->sizeHint;
         req->stream->notifyData = req->notifyData;
