@@ -555,8 +555,8 @@ main(int argc, char **argv)
     initNetscapeFuncs();
     initBrowserObject();
 
-    logmsg("LoadLibraryA\n");
-    loader = LoadLibraryA("npUnity3D32.dll");
+    logmsg("LoadLibraryW\n");
+    loader = LoadLibraryW(L"loader\\npUnity3D32.dll");
     if (!loader) {
         err = GetLastError();
         logmsg("Failed to load plugin DLL: 0x%x\n", err);

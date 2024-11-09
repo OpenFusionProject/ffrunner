@@ -5,6 +5,7 @@
 assets/
 mono/
 player/
+loader/
 out/
 build/
 .vscode/
