@@ -47,7 +47,7 @@ window_proc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
         return 0;
     }
 
-    return DefWindowProcA(hwnd, uMsg, wParam, lParam);
+    return DefWindowProcW(hwnd, uMsg, wParam, lParam);
 }
 
 void
@@ -58,19 +58,19 @@ prepare_window(void)
     int x, y;
 
     wc.lpfnWndProc   = window_proc;
-    wc.hInstance     = GetModuleHandleA(NULL);
+    wc.hInstance     = GetModuleHandleW(NULL);
     wc.lpszClassName = CLASS_NAME;
     wc.style         = CS_DBLCLKS;
 
-    hIcon = LoadIcon(wc.hInstance, MAKEINTRESOURCE(0));
+    hIcon = LoadIconW(wc.hInstance, MAKEINTRESOURCEW(0));
     wc.hIcon = hIcon;
 
-    RegisterClassA(&wc);
+    RegisterClassW(&wc);
 
     x = (GetSystemMetrics(SM_CXSCREEN) - WIDTH) / 2;
     y = (GetSystemMetrics(SM_CYSCREEN) - HEIGHT) / 2;
 
-    hwnd = CreateWindowExA(0, CLASS_NAME, "FusionFall", WS_OVERLAPPEDWINDOW, x, y, WIDTH, HEIGHT, 0, 0, GetModuleHandleA(0), 0);
+    hwnd = CreateWindowExW(0, CLASS_NAME, L"FusionFall", WS_OVERLAPPEDWINDOW, x, y, WIDTH, HEIGHT, 0, 0, GetModuleHandleW(NULL), 0);
 }
 
 void
@@ -88,12 +88,10 @@ open_link(char *url)
 void
 message_loop(void)
 {
-    Request *req;
-    bool done;
     MSG msg = {0};
 
     while (GetMessage(&msg, NULL, 0, 0) > 0) {
         TranslateMessage(&msg);
-        DispatchMessageA(&msg);
+        DispatchMessageW(&msg);
     }
 }

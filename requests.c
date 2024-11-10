@@ -194,7 +194,6 @@ void
 init_request_file(Request *req)
 {
     DWORD fileSize;
-    char redirectPath[MAX_PATH];
 
     req->handles.hFile = CreateFileA(req->url, GENERIC_READ, FILE_SHARE_READ, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
     if (req->handles.hFile == INVALID_HANDLE_VALUE) {
@@ -460,7 +459,7 @@ handle_request(PTP_CALLBACK_INSTANCE inst, void *reqArg, PTP_WORK work)
         if (!req->failed) {
             progress_request(req);
         }
-        PostMessageA(hwnd, ioMsg, (WPARAM)NULL, (LPARAM)req);
+        PostMessageW(hwnd, ioMsg, (WPARAM)NULL, (LPARAM)req);
         WaitForSingleObject(req->readyEvent, INFINITE);
     }
 }
@@ -470,7 +469,7 @@ submit_request(Request *req)
 {
     PTP_WORK work;
 
-    req->readyEvent = CreateEventA(NULL, false, false, NULL);
+    req->readyEvent = CreateEventW(NULL, false, false, NULL);
     assert(req->readyEvent);
 
     work = CreateThreadpoolWork(handle_request, req, NULL);
@@ -526,7 +525,7 @@ void
 init_network(char *mainSrcUrl)
 {
     srcUrl = mainSrcUrl;
-    ioMsg = RegisterWindowMessageA(IO_MSG_NAME);
+    ioMsg = RegisterWindowMessageW(IO_MSG_NAME);
     if (!ioMsg) {
         logmsg("Failed to register io msg: %d\n", GetLastError());
         exit(1);

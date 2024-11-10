@@ -17,8 +17,8 @@
 
 #define LOG_FILE_PATH "ffrunner.log"
 #define USERAGENT "ffrunner"
-#define CLASS_NAME "FFWINDOW"
-#define IO_MSG_NAME "FFRunnerIoReady"
+#define CLASS_NAME L"FFWINDOW"
+#define IO_MSG_NAME L"FFRunnerIoReady"
 #define REQUEST_BUFFER_SIZE 0x8000
 #define POST_DATA_SIZE 0x1000
 #define MAX_URL_LENGTH 256
