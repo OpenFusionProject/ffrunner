@@ -60,6 +60,7 @@ prepare_window(void)
     wc.lpfnWndProc   = window_proc;
     wc.hInstance     = GetModuleHandleA(NULL);
     wc.lpszClassName = CLASS_NAME;
+    wc.style         = CS_DBLCLKS;
 
     hIcon = LoadIcon(wc.hInstance, MAKEINTRESOURCE(0));
     wc.hIcon = hIcon;
