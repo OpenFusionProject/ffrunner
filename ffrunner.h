@@ -24,7 +24,12 @@
 #define MAX_URL_LENGTH 256
 #define WIDTH 1280
 #define HEIGHT 720
+
+// we default to 104 public server
 #define FALLBACK_SRC_URL "http://cdn.dexlabs.systems/ff/big/beta-20100104/main.unity3d"
+#define FALLBACK_ASSET_URL "http://cdn.dexlabs.systems/ff/big/beta-20100104/"
+#define FALLBACK_SERVER_ADDRESS "144.202.52.9:23000"
+#define FALLBACK_RANK_URL "http://api.dexlabs.systems/getranks"
 
 #define ARRLEN(x) (sizeof(x)/sizeof(*x))
 #define MIN(a, b) (a > b ? b : a)

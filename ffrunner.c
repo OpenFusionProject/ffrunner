@@ -502,6 +502,17 @@ parse_args(int argc, char **argv)
         args.mainPathOrAddress = FALLBACK_SRC_URL;
     }
 
+    if (args.assetUrl == NULL) {
+        args.assetUrl = FALLBACK_ASSET_URL;
+    }
+
+    if (args.serverAddress == NULL) {
+        args.serverAddress = FALLBACK_SERVER_ADDRESS;
+        if (args.rankUrl == NULL) {
+            args.rankUrl = FALLBACK_RANK_URL;
+        }
+    }
+
     if (args.logPath == NULL) {
         args.logPath = LOG_FILE_PATH;
     }
