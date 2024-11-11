@@ -562,6 +562,7 @@ main(int argc, char **argv)
         SetEnvironmentVariableW(L"UNITY_HOME_DIR", cwd);
     }
     SetEnvironmentVariableA("UNITY_DISABLE_PLUGIN_UPDATES", "yes");
+    SetEnvironmentVariableA("LANG", NULL); // webplayer crashes if this is set
 
     initNetscapeFuncs();
     initBrowserObject();
