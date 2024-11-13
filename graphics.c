@@ -53,7 +53,7 @@ window_proc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 void
 prepare_window(void)
 {
-    WNDCLASS wc = {0};
+    WNDCLASSW wc = {0};
     HICON hIcon;
     int x, y;
 
