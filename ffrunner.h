@@ -9,6 +9,7 @@
 
 #include <windows.h>
 #include <wininet.h>
+#include <dxgi.h>
 
 #include "npapi/npapi.h"
 #include "npapi/npfunctions.h"
@@ -119,6 +120,7 @@ void prepare_window(void);
 void show_error_dialog(char *msg);
 void open_link(char *url);
 void message_loop(void);
+void apply_vram_fix(void);
 
 void init_logging(const char *logPath, bool verbose);
 void dbglogmsg(const char *fmt, ...);

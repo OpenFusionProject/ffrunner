@@ -95,3 +95,81 @@ message_loop(void)
         DispatchMessageW(&msg);
     }
 }
+
+static
+HMONITOR
+get_primary_monitor()
+{
+    POINT ptZero = {0, 0};
+    return MonitorFromPoint(ptZero, MONITOR_DEFAULTTOPRIMARY);
+}
+
+static
+bool
+get_vram_from_dxgi(size_t* vramBytes)
+{
+	*vramBytes = 0;
+    HMONITOR monitor = get_primary_monitor();
+
+    IDXGIFactory* factory = NULL;
+    CreateDXGIFactory(&IID_IDXGIFactory, &factory);
+    if (factory == NULL) {
+        return false;
+    }
+
+    for (int i = 0; ; i++) {
+        bool isPrimaryAdapter = false;
+        IDXGIAdapter* adapter = NULL;
+        if (FAILED(factory->lpVtbl->EnumAdapters(factory, i, &adapter)))
+            break;
+
+        for (int j = 0; ; j++) {
+            IDXGIOutput* output = NULL;
+            if (FAILED(adapter->lpVtbl->EnumOutputs(adapter, j, &output)))
+                break;
+
+            DXGI_OUTPUT_DESC outputDesc = { 0 };
+            if (SUCCEEDED(output->lpVtbl->GetDesc(output, &outputDesc)))
+            {
+                if (outputDesc.Monitor == monitor)
+                    isPrimaryAdapter = true;
+            }
+
+            output->lpVtbl->Release(output);
+        }
+
+        if (!isPrimaryAdapter) {
+            adapter->lpVtbl->Release(adapter);
+            continue;
+        }
+
+        DXGI_ADAPTER_DESC adapterDesc = { 0 };
+        HRESULT hr = adapter->lpVtbl->GetDesc(adapter, &adapterDesc);
+        adapter->lpVtbl->Release(adapter);
+        if (SUCCEEDED(hr)) {
+            *vramBytes = adapterDesc.DedicatedVideoMemory + adapterDesc.SharedSystemMemory;
+            factory->lpVtbl->Release(factory);
+            return true;
+        }
+    }
+
+    factory->lpVtbl->Release(factory);
+    return false;
+}
+
+void
+apply_vram_fix()
+{
+    size_t vramBytes;
+    if (!get_vram_from_dxgi(&vramBytes)) {
+        logmsg("Failed to get VRAM size from DXGI; game will try to query it\n");
+        return;
+    }
+
+    size_t vramMegabytes = vramBytes >> 20;
+    logmsg("VRAM size: %zu bytes (%zu MB)\n", vramBytes, vramMegabytes);
+    char vramMbStr[32];
+    snprintf(vramMbStr, sizeof(vramMbStr), "%zu", vramMegabytes);
+    logmsg("setenv(\"UNITY_FF_VRAM_MB\", \"%s\")\n", vramMbStr);
+    SetEnvironmentVariableA("UNITY_FF_VRAM_MB", vramMbStr);
+}

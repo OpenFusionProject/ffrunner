@@ -9,5 +9,5 @@ endif()
 
 set_target_properties(ffrunner PROPERTIES C_STANDARD 99)
 
-target_link_libraries(ffrunner wininet)
+target_link_libraries(ffrunner windowscodecs wininet dxgi)
 

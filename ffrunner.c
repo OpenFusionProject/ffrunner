@@ -558,11 +558,12 @@ main(int argc, char **argv)
     }
 
     if (GetCurrentDirectoryW(MAX_PATH, cwd)) {
-        logmsg("setenv(\"%ls\")\n", cwd);
+        logmsg("setenv(\"UNITY_HOME_DIR\", \"%ls\")\n", cwd);
         SetEnvironmentVariableW(L"UNITY_HOME_DIR", cwd);
     }
     SetEnvironmentVariableA("UNITY_DISABLE_PLUGIN_UPDATES", "yes");
     SetEnvironmentVariableA("LANG", NULL); // webplayer crashes if this is set
+    apply_vram_fix();
 
     initNetscapeFuncs();
     initBrowserObject();
