@@ -112,7 +112,7 @@ get_vram_from_dxgi(size_t* vramBytes)
     HMONITOR monitor = get_primary_monitor();
 
     IDXGIFactory* factory = NULL;
-    CreateDXGIFactory(&IID_IDXGIFactory, &factory);
+    CreateDXGIFactory(&IID_IDXGIFactory, (void**)&factory);
     if (factory == NULL) {
         return false;
     }
