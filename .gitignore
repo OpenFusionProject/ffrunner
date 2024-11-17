@@ -2,6 +2,7 @@
 *.dll
 *.res
 *.log
+*.dxvk-cache
 assets/
 mono/
 player/
