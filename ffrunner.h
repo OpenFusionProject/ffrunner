@@ -97,6 +97,7 @@ struct Arguments {
     char *sponsorImageUrl;
     char *tegId;
     char *authId;
+    char *loaderImageUrl;
 };
 
 extern Arguments args;

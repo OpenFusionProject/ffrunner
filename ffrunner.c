@@ -480,19 +480,22 @@ parse_args(int argc, char **argv)
             args.tegId = ARG_VAL();
         } else if (ARG_LONG("token")) case 't': {
             args.authId = ARG_VAL();
+        } else if (ARG_LONG("loaderimages")) {
+            args.loaderImageUrl = ARG_VAL();
         } else if (ARG_LONG("help")) case 'h': {
-            printf("Usage: ffrunner.exe [OPTION...]\n");
-            puts("  -m, --main=STR      The main URL to load");
-            puts("  -l, --log=STR       The path to the log file");
-            puts("  -v, --verbose       Enable verbose logging");
-            puts("  -a, --address=STR   The address of the server");
-            puts("      --asseturl=STR  The URL of the CDN for assets");
-            puts("  -r, --rankurl=STR   The rank endpoint URL");
-            puts("  -i, --images=STR    The images endpoint URL");
-            puts("  -s, --sponsor=STR   The sponsor image URL");
-            puts("  -u, --username=STR  Username for auto-login");
-            puts("  -t, --token=STR     Password or token for auto-login");
-            puts("  -h, --help          Display this");
+            puts("Usage: ffrunner.exe [OPTION...]");
+            puts("  -m, --main=STR          The main URL to load");
+            puts("  -l, --log=STR           The path to the log file");
+            puts("  -v, --verbose           Enable verbose logging");
+            puts("  -a, --address=STR       The address of the server");
+            puts("      --asseturl=STR      The URL of the CDN for assets");
+            puts("  -r, --rankurl=STR       The rank endpoint URL");
+            puts("  -i, --images=STR        The images endpoint URL");
+            puts("  -s, --sponsor=STR       The sponsor image URL");
+            puts("      --loaderimages=STR  The loader image URL");
+            puts("  -u, --username=STR      Username for auto-login");
+            puts("  -t, --token=STR         Password or token for auto-login");
+            puts("  -h, --help              Display this help menu");
             puts("");
             exit(0);
         }
@@ -529,6 +532,7 @@ print_args()
     printf("rankurl: %s\n", args.rankUrl);
     printf("images: %s\n", args.imagesUrl);
     printf("sponsor: %s\n", args.sponsorImageUrl);
+    printf("loaderimages: %s\n", args.loaderImageUrl);
     printf("username: %s\n", args.tegId);
     printf("token: %s\n", args.authId == NULL ? "(null)" : "********");
 }

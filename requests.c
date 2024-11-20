@@ -67,6 +67,21 @@ get_in_memory_data(char *url)
     return NULL;
 }
 
+void
+get_redirected(char *url, char* newUrl)
+{
+    assert(newUrl != NULL);
+
+    /* redirect loading images if set */
+    if (args.loaderImageUrl && strstr(url, "assets/img") == url) {
+        char *rest = url + strlen("assets/img");
+        snprintf(newUrl, MAX_URL_LENGTH, "%s%s", args.loaderImageUrl, rest);
+        return;
+    }
+
+    strcpy(newUrl, url);
+}
+
 char *
 get_file_name(char *url)
 {
@@ -360,6 +375,7 @@ fail:
 void
 init_request(Request *req)
 {
+    char redirectedUrl[MAX_URL_LENGTH];
     URL_COMPONENTSA urlComponents;
     char hostname[MAX_URL_LENGTH];
     char filePath[MAX_URL_LENGTH];
@@ -372,6 +388,12 @@ init_request(Request *req)
     /* setup state */
     fileName = get_file_name(req->url);
     req->mimeType = get_mime_type(fileName);
+
+    /* check for redirects */
+    get_redirected(req->url, redirectedUrl);
+    if (strcmp(req->url, redirectedUrl) != 0) {
+        strncpy(req->url, redirectedUrl, MAX_URL_LENGTH);
+    }
 
     /* check for in-memory source first */
     inMemoryData = get_in_memory_data(req->url);
