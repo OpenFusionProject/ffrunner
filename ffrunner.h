@@ -98,6 +98,8 @@ struct Arguments {
     char *tegId;
     char *authId;
     char *loaderImageUrl;
+    bool forceVulkan;
+    bool forceOpenGl;
 };
 
 extern Arguments args;

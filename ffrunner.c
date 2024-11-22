@@ -482,6 +482,10 @@ parse_args(int argc, char **argv)
             args.authId = ARG_VAL();
         } else if (ARG_LONG("loaderimages")) {
             args.loaderImageUrl = ARG_VAL();
+        } else if (ARG_LONG("force-vulkan")) {
+            args.forceVulkan = true;
+        } else if (ARG_LONG("force-opengl")) {
+            args.forceOpenGl = true;
         } else if (ARG_LONG("help")) case 'h': {
             puts("Usage: ffrunner.exe [OPTION...]");
             puts("  -m, --main=STR          The main URL to load");
@@ -495,6 +499,8 @@ parse_args(int argc, char **argv)
             puts("      --loaderimages=STR  The loader image URL");
             puts("  -u, --username=STR      Username for auto-login");
             puts("  -t, --token=STR         Password or token for auto-login");
+            puts("      --force-vulkan      Force Vulkan renderer");
+            puts("      --force-opengl      Force OpenGL renderer");
             puts("  -h, --help              Display this help menu");
             puts("");
             exit(0);
@@ -535,6 +541,8 @@ print_args()
     printf("loaderimages: %s\n", args.loaderImageUrl);
     printf("username: %s\n", args.tegId);
     printf("token: %s\n", args.authId == NULL ? "(null)" : "********");
+    printf("force-vulkan: %s\n", args.forceVulkan ? "true" : "false");
+    printf("force-opengl: %s\n", args.forceOpenGl ? "true" : "false");
 }
 
 int
@@ -567,6 +575,12 @@ main(int argc, char **argv)
     }
     SetEnvironmentVariableA("UNITY_DISABLE_PLUGIN_UPDATES", "yes");
     SetEnvironmentVariableA("LANG", NULL); // webplayer crashes if this is set
+
+    if (args.forceVulkan) {
+        SetEnvironmentVariableA("UNITY_FF_DX_DLL", "d3d9_vulkan.dll");
+    } else if (args.forceOpenGl) {
+        SetEnvironmentVariableA("UNITY_FF_DX_DLL", "lmao");
+    }
     apply_vram_fix();
 
     initNetscapeFuncs();
