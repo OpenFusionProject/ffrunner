@@ -49,7 +49,7 @@ struct {
     { "assetInfo.php", &args.assetUrl },
     { "rankurl.txt", &args.rankUrl },
     { "images.php", &args.imagesUrl },
-    { "sponsor.png", &args.sponsorImageUrl },
+    { "sponsor.php", &args.sponsorImageUrl },
 };
 
 char *
