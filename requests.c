@@ -413,15 +413,19 @@ init_request(Request *req)
         .lpszUrlPath = filePath,
         .dwUrlPathLength = MAX_URL_LENGTH
     };
-    if (!InternetCrackUrlA(req->url, strlen(req->url), 0, &urlComponents)) {
-        /* local */
-        req->source = REQ_SRC_FILE;
-        init_request_file(req);
-    } else {
-        /* remote */
-        req->source = REQ_SRC_HTTP;
-        init_request_http(req, hostname, filePath, &urlComponents);
+
+    if (InternetCrackUrlA(req->url, strlen(req->url), 0, &urlComponents)) {
+        if (urlComponents.nScheme == INTERNET_SCHEME_HTTP || urlComponents.nScheme == INTERNET_SCHEME_HTTPS) {
+            /* remote */
+            req->source = REQ_SRC_HTTP;
+            init_request_http(req, hostname, filePath, &urlComponents);
+            return;
+        }
     }
+
+    /* assume local */
+    req->source = REQ_SRC_FILE;
+    init_request_file(req);
 }
 
 void
