@@ -482,6 +482,10 @@ parse_args(int argc, char **argv)
             args.authId = ARG_VAL();
         } else if (ARG_LONG("loaderimages")) {
             args.loaderImageUrl = ARG_VAL();
+        } else if (ARG_LONG("width")) {
+            args.windowWidth = atoi(ARG_VAL());
+        } else if (ARG_LONG("height")) {
+            args.windowHeight = atoi(ARG_VAL());
         } else if (ARG_LONG("force-vulkan")) {
             args.forceVulkan = true;
         } else if (ARG_LONG("force-opengl")) {
@@ -499,6 +503,8 @@ parse_args(int argc, char **argv)
             puts("      --loaderimages=STR  The loader image URL");
             puts("  -u, --username=STR      Username for auto-login");
             puts("  -t, --token=STR         Password or token for auto-login");
+            puts("      --width=INT         The width of the window");
+            puts("      --height=INT        The height of the window");
             puts("      --force-vulkan      Force Vulkan renderer");
             puts("      --force-opengl      Force OpenGL renderer");
             puts("  -h, --help              Display this help menu");
@@ -525,6 +531,14 @@ parse_args(int argc, char **argv)
     if (args.logPath == NULL) {
         args.logPath = LOG_FILE_PATH;
     }
+
+    if (args.windowWidth == 0) {
+        args.windowWidth = DEFAULT_WIDTH;
+    }
+
+    if (args.windowHeight == 0) {
+        args.windowHeight = DEFAULT_HEIGHT;
+    }
 }
 
 void
@@ -541,6 +555,8 @@ print_args()
     printf("loaderimages: %s\n", args.loaderImageUrl);
     printf("username: %s\n", args.tegId);
     printf("token: %s\n", args.authId == NULL ? "(null)" : "********");
+    printf("width: %d\n", args.windowWidth);
+    printf("height: %d\n", args.windowHeight);
     printf("force-vulkan: %s\n", args.forceVulkan ? "true" : "false");
     printf("force-opengl: %s\n", args.forceOpenGl ? "true" : "false");
 }
@@ -604,7 +620,7 @@ main(int argc, char **argv)
         exit(1);
     }
 
-    prepare_window();
+    prepare_window(args.windowWidth, args.windowHeight);
     assert(hwnd);
 
     srcUrl = args.mainPathOrAddress;
@@ -654,9 +670,9 @@ main(int argc, char **argv)
     npWin = (NPWindow){
         .window = hwnd,
         .x = 0, .y = 0,
-        .width = WIDTH, .height = HEIGHT,
+        .width = args.windowWidth, .height = args.windowHeight,
         .clipRect = {
-            0, 0, HEIGHT, WIDTH
+            0, 0, args.windowHeight, args.windowWidth
         },
         .type = NPWindowTypeWindow
     };

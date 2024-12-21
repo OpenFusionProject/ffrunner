@@ -23,8 +23,8 @@
 #define REQUEST_BUFFER_SIZE 0x8000
 #define POST_DATA_SIZE 0x1000
 #define MAX_URL_LENGTH 256
-#define WIDTH 1280
-#define HEIGHT 720
+#define DEFAULT_WIDTH 1280
+#define DEFAULT_HEIGHT 720
 
 // we default to 104 public server
 #define FALLBACK_SRC_URL "http://cdn.dexlabs.systems/ff/big/beta-20100104/main.unity3d"
@@ -89,7 +89,6 @@ struct Request {
 struct Arguments {
     char *mainPathOrAddress;
     char *logPath;
-    bool verboseLogging;
     char *serverAddress;
     char *assetUrl;
     char *rankUrl;
@@ -98,6 +97,9 @@ struct Arguments {
     char *tegId;
     char *authId;
     char *loaderImageUrl;
+    uint32_t windowWidth;
+    uint32_t windowHeight;
+    bool verboseLogging;
     bool forceVulkan;
     bool forceOpenGl;
 };
@@ -119,7 +121,7 @@ bool handle_io_progress(Request *req);
 void submit_request(Request *req);
 void init_network(char *mainSrcUrl);
 
-void prepare_window(void);
+void prepare_window(uint32_t width, uint32_t height);
 void show_error_dialog(char *msg);
 void open_link(char *url);
 void message_loop(void);

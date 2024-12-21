@@ -51,7 +51,7 @@ window_proc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 }
 
 void
-prepare_window(void)
+prepare_window(uint32_t width, uint32_t height)
 {
     WNDCLASSW wc = {0};
     HICON hIcon;
@@ -67,10 +67,10 @@ prepare_window(void)
 
     RegisterClassW(&wc);
 
-    x = (GetSystemMetrics(SM_CXSCREEN) - WIDTH) / 2;
-    y = (GetSystemMetrics(SM_CYSCREEN) - HEIGHT) / 2;
+    x = (GetSystemMetrics(SM_CXSCREEN) - width) / 2;
+    y = (GetSystemMetrics(SM_CYSCREEN) - height) / 2;
 
-    hwnd = CreateWindowExW(0, CLASS_NAME, L"FusionFall", WS_OVERLAPPEDWINDOW, x, y, WIDTH, HEIGHT, 0, 0, GetModuleHandleW(NULL), 0);
+    hwnd = CreateWindowExW(0, CLASS_NAME, L"FusionFall", WS_OVERLAPPEDWINDOW, x, y, width, height, 0, 0, GetModuleHandleW(NULL), 0);
 }
 
 void
