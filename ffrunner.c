@@ -706,3 +706,16 @@ main(int argc, char **argv)
 
     return 0;
 }
+
+int
+WINAPI
+WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int nCmdShow)
+{
+    int argc;
+    char **argv;
+
+    argc = __argc;
+    argv = __argv;
+
+    return main(argc, argv);
+}
