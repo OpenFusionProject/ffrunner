@@ -415,6 +415,12 @@ init_request(Request *req)
     };
 
     if (InternetCrackUrlA(req->url, strlen(req->url), 0, &urlComponents)) {
+        if (urlComponents.nScheme == INTERNET_SCHEME_FILE) {
+            /* file:/// scheme; translate to file src to avoid wininet overhead */
+            strncpy(req->url, filePath, MAX_URL_LENGTH);
+            goto init_as_file;
+        }
+
         if (urlComponents.nScheme == INTERNET_SCHEME_HTTP || urlComponents.nScheme == INTERNET_SCHEME_HTTPS) {
             /* remote */
             req->source = REQ_SRC_HTTP;
@@ -423,7 +429,8 @@ init_request(Request *req)
         }
     }
 
-    /* assume local */
+init_as_file:
+    /* assume file path */
     req->source = REQ_SRC_FILE;
     init_request_file(req);
 }
