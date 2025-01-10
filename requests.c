@@ -130,10 +130,10 @@ handle_io_progress(Request *req)
         /* start streaming */
         req->stream = malloc(sizeof(*req->stream));
         memset(req->stream, 0, sizeof(*req->stream));
-        req->stream->url = req->url;
+        req->stream->url = req->originalUrl;
         req->stream->end = req->sizeHint;
         req->stream->notifyData = req->notifyData;
-        logmsg("> NPP_NewStream %s\n", req->url);
+        logmsg("> NPP_NewStream %s\n", req->originalUrl);
         err = pluginFuncs.newstream(&npp, req->mimeType, req->stream, false, &req->streamType);
         logmsg("returned %d\n", err);
         if (err != NPERR_NO_ERROR) {
@@ -144,11 +144,11 @@ handle_io_progress(Request *req)
     bytesAvailable = req->writeSize - req->writePtr;
     if (req->stream && bytesAvailable > 0) {
         /* streaming in progress AND data available */
-        dbglogmsg("> NPP_WriteReady %s %d\n", req->url, bytesAvailable);
+        dbglogmsg("> NPP_WriteReady %s %d\n", req->originalUrl, bytesAvailable);
         writeSize = pluginFuncs.writeready(&npp, req->stream);
         writeSize = MIN(writeSize, bytesAvailable);
 
-        dbglogmsg("> NPP_Write %s %d\n", req->url, writeSize);
+        dbglogmsg("> NPP_Write %s %d\n", req->originalUrl, writeSize);
         dataPtr = req->buf + req->writePtr;
         bytesConsumed = pluginFuncs.write(&npp, req->stream, req->bytesWritten, writeSize, dataPtr);
         if (bytesConsumed < 0) {
@@ -166,7 +166,7 @@ handle_io_progress(Request *req)
     if (req->failed || (req->done && bytesAvailable == 0)) {
         /* request is cancelled or complete */
         if (req->stream) {
-            logmsg("> NPP_DestroyStream %s %d\n", req->url, req->doneReason);
+            logmsg("> NPP_DestroyStream %s %d\n", req->originalUrl, req->doneReason);
             err = pluginFuncs.destroystream(&npp, req->stream, req->doneReason);
             if (err != NPERR_NO_ERROR) {
                 logmsg("destroystream error %d\n", err);
@@ -175,8 +175,8 @@ handle_io_progress(Request *req)
         }
 
         if (req->doNotify) {
-            logmsg("> NPP_UrlNotify %s %d %p\n", req->url, req->doneReason, req->notifyData);
-            pluginFuncs.urlnotify(&npp, req->url, req->doneReason, req->notifyData);
+            logmsg("> NPP_UrlNotify %s %d %p\n", req->originalUrl, req->doneReason, req->notifyData);
+            pluginFuncs.urlnotify(&npp, req->originalUrl, req->doneReason, req->notifyData);
         }
 
         if ((req->source == REQ_SRC_FILE || req->source == REQ_SRC_CACHE) && req->handles.hFile != INVALID_HANDLE_VALUE) {
@@ -383,17 +383,15 @@ init_request(Request *req)
     char *inMemoryData;
 
     assert(req->source == REQ_SRC_UNSET);
-    assert(req->url != NULL);
+    assert(req->originalUrl != NULL);
 
     /* setup state */
-    fileName = get_file_name(req->url);
+    fileName = get_file_name(req->originalUrl);
     req->mimeType = get_mime_type(fileName);
 
     /* check for redirects */
-    get_redirected(req->url, redirectedUrl);
-    if (strcmp(req->url, redirectedUrl) != 0) {
-        strncpy(req->url, redirectedUrl, MAX_URL_LENGTH);
-    }
+    get_redirected(req->originalUrl, redirectedUrl);
+    strncpy(req->url, redirectedUrl, MAX_URL_LENGTH);
 
     /* check for in-memory source first */
     inMemoryData = get_in_memory_data(req->url);
@@ -527,7 +525,7 @@ register_get_request(const char *url, bool doNotify, void *notifyData)
         .isPost = false,
         .postDataLen = 0
     };
-    strncpy(req->url, url, MAX_URL_LENGTH);
+    strncpy(req->originalUrl, url, MAX_URL_LENGTH);
 
     submit_request(req);
 }
@@ -548,7 +546,7 @@ register_post_request(const char *url, bool doNotify, void *notifyData, uint32_t
         .isPost = true,
         .postDataLen = postDataLen
     };
-    strncpy(req->url, url, MAX_URL_LENGTH);
+    strncpy(req->originalUrl, url, MAX_URL_LENGTH);
     memcpy(req->postData, postData, postDataLen);
 
     submit_request(req);

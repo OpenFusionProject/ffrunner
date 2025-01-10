@@ -55,6 +55,7 @@ struct Request {
     /* params */
     void *notifyData;
     bool doNotify;
+    char originalUrl[MAX_URL_LENGTH];
     char url[MAX_URL_LENGTH];
     bool isPost;
     uint32_t postDataLen;
