@@ -26,11 +26,10 @@
 #define DEFAULT_WIDTH 1280
 #define DEFAULT_HEIGHT 720
 
-// we default to 104 public server
+// we default to local server with 104 assets
 #define FALLBACK_SRC_URL "http://cdn.dexlabs.systems/ff/big/beta-20100104/main.unity3d"
 #define FALLBACK_ASSET_URL "http://cdn.dexlabs.systems/ff/big/beta-20100104/"
-#define FALLBACK_SERVER_ADDRESS "144.202.52.9:23000"
-#define FALLBACK_RANK_URL "http://api.dexlabs.systems/getranks"
+#define FALLBACK_SERVER_ADDRESS "127.0.0.1:23000"
 
 #define ARRLEN(x) (sizeof(x)/sizeof(*x))
 #define MIN(a, b) (a > b ? b : a)
@@ -92,14 +91,12 @@ struct Arguments {
     char *logPath;
     char *serverAddress;
     char *assetUrl;
-    char *rankUrl;
-    char *imagesUrl;
-    char *sponsorImageUrl;
+    char *endpointHost;
     char *tegId;
     char *authId;
-    char *loaderImageUrl;
     uint32_t windowWidth;
     uint32_t windowHeight;
+    bool useEndpointLoadingScreen;
     bool verboseLogging;
     bool forceVulkan;
     bool forceOpenGl;

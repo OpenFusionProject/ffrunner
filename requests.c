@@ -47,9 +47,6 @@ struct {
 } IN_MEMORY_SOURCES[] = {
     { "loginInfo.php", &args.serverAddress },
     { "assetInfo.php", &args.assetUrl },
-    { "rankurl.txt", &args.rankUrl },
-    { "images.php", &args.imagesUrl },
-    { "sponsor.php", &args.sponsorImageUrl },
 };
 
 char *
@@ -73,9 +70,9 @@ get_redirected(char *url, char* newUrl)
     assert(newUrl != NULL);
 
     /* redirect loading images if set */
-    if (args.loaderImageUrl && strstr(url, "assets/img") == url) {
+    if (args.useEndpointLoadingScreen && strstr(url, "assets/img") == url) {
         char *rest = url + strlen("assets/img");
-        snprintf(newUrl, MAX_URL_LENGTH, "%s%s", args.loaderImageUrl, rest);
+        snprintf(newUrl, MAX_URL_LENGTH, "http://%s/launcher/loading%s", args.endpointHost, rest);
         return;
     }
 
@@ -282,7 +279,7 @@ cleanup:
 }
 
 void
-init_request_http(Request *req, char *hostname, char *filePath, LPURL_COMPONENTSA urlComponents)
+init_request_http(Request *req, char *hostname, char *filePath, INTERNET_SCHEME scheme, INTERNET_PORT port)
 {
     DWORD lenlen;
     DWORD err;
@@ -313,16 +310,16 @@ init_request_http(Request *req, char *hostname, char *filePath, LPURL_COMPONENTS
         goto fail;
     }
 
-    req->handles.http.hConn = InternetConnectA(hInternet, hostname, urlComponents->nPort, NULL, NULL, INTERNET_SERVICE_HTTP, 0, 0);
+    req->handles.http.hConn = InternetConnectA(hInternet, hostname, port, NULL, NULL, INTERNET_SERVICE_HTTP, 0, 0);
     if (!req->handles.http.hConn) {
         logmsg("Failed internetconnect: %d\n", GetLastError());
         goto fail;
     }
 
-    if (urlComponents->nScheme == INTERNET_SCHEME_HTTPS) {
+    if (scheme == INTERNET_SCHEME_HTTPS) {
         flags |= INTERNET_FLAG_SECURE;
     }
-    logmsg("Verb: %s\nHost: %s\nPort: %d\nObject: %s\n", verb, hostname, urlComponents->nPort, filePath);
+    logmsg("Verb: %s\nHost: %s\nPort: %d\nObject: %s\n", verb, hostname, port, filePath);
     req->handles.http.hReq = HttpOpenRequestA(req->handles.http.hConn, verb, filePath, NULL, NULL, acceptedTypes, flags, 0);
     if (!req->handles.http.hReq) {
         logmsg("Failed httpopen: %d\n", GetLastError());
@@ -376,10 +373,12 @@ void
 init_request(Request *req)
 {
     char redirectedUrl[MAX_URL_LENGTH];
+    char endpointUrl[MAX_URL_LENGTH];
     URL_COMPONENTSA urlComponents;
     char hostname[MAX_URL_LENGTH];
     char filePath[MAX_URL_LENGTH];
     char *fileName;
+    bool fileExists;
     char *inMemoryData;
 
     assert(req->source == REQ_SRC_UNSET);
@@ -422,13 +421,30 @@ init_request(Request *req)
         if (urlComponents.nScheme == INTERNET_SCHEME_HTTP || urlComponents.nScheme == INTERNET_SCHEME_HTTPS) {
             /* remote */
             req->source = REQ_SRC_HTTP;
-            init_request_http(req, hostname, filePath, &urlComponents);
+            init_request_http(req, hostname, filePath, urlComponents.nScheme, urlComponents.nPort);
             return;
         }
     }
 
+     /* assume file path */
+
 init_as_file:
-    /* assume file path */
+
+    /* if the file doesn't exist on disk, try getting it from the endpoint */
+    if (args.endpointHost != NULL) {
+        fileExists = GetFileAttributesA(req->url) != INVALID_FILE_ATTRIBUTES;
+        if (!fileExists) {
+            snprintf(endpointUrl, MAX_URL_LENGTH, "http://%s/%s", args.endpointHost, fileName);
+            /* need to crack the URL again post-fmt */
+            if (InternetCrackUrlA(endpointUrl, strlen(endpointUrl), 0, &urlComponents)) {
+                logmsg("checking endpoint for %s (http://%s/%s)\n", fileName, args.endpointHost, fileName);
+                req->source = REQ_SRC_HTTP;
+                init_request_http(req, hostname, filePath, urlComponents.nScheme, urlComponents.nPort);
+                return;
+            }
+        }
+    }
+
     req->source = REQ_SRC_FILE;
     init_request_file(req);
 }

@@ -470,22 +470,18 @@ parse_args(int argc, char **argv)
             args.serverAddress = ARG_VAL();
         } else if (ARG_LONG("asseturl")) {
             args.assetUrl = ARG_VAL();
-        } else if (ARG_LONG("rankurl")) case 'r': {
-            args.rankUrl = ARG_VAL();
-        } else if (ARG_LONG("images")) case 'i': {
-            args.imagesUrl = ARG_VAL();
-        } else if (ARG_LONG("sponsor")) case 's': {
-            args.sponsorImageUrl = ARG_VAL();
+        } else if (ARG_LONG("endpoint")) case 'e': {
+            args.endpointHost = ARG_VAL();
         } else if (ARG_LONG("username")) case 'u': {
             args.tegId = ARG_VAL();
         } else if (ARG_LONG("token")) case 't': {
             args.authId = ARG_VAL();
-        } else if (ARG_LONG("loaderimages")) {
-            args.loaderImageUrl = ARG_VAL();
         } else if (ARG_LONG("width")) {
             args.windowWidth = atoi(ARG_VAL());
         } else if (ARG_LONG("height")) {
             args.windowHeight = atoi(ARG_VAL());
+        } else if (ARG_LONG("loader-images")) {
+            args.useEndpointLoadingScreen = true;
         } else if (ARG_LONG("force-vulkan")) {
             args.forceVulkan = true;
         } else if (ARG_LONG("force-opengl")) {
@@ -497,14 +493,12 @@ parse_args(int argc, char **argv)
             puts("  -v, --verbose           Enable verbose logging");
             puts("  -a, --address=STR       The address of the server");
             puts("      --asseturl=STR      The URL of the CDN for assets");
-            puts("  -r, --rankurl=STR       The rank endpoint URL");
-            puts("  -i, --images=STR        The images endpoint URL");
-            puts("  -s, --sponsor=STR       The sponsor image URL");
-            puts("      --loaderimages=STR  The loader image URL");
+            puts("  -e, --endpoint=STR      The OFAPI endpoint URL");
             puts("  -u, --username=STR      Username for auto-login");
             puts("  -t, --token=STR         Password or token for auto-login");
             puts("      --width=INT         The width of the window");
             puts("      --height=INT        The height of the window");
+            puts("      --loader-images     Use loading screen images from endpoint");
             puts("      --force-vulkan      Force Vulkan renderer");
             puts("      --force-opengl      Force OpenGL renderer");
             puts("  -h, --help              Display this help menu");
@@ -523,9 +517,6 @@ parse_args(int argc, char **argv)
 
     if (args.serverAddress == NULL) {
         args.serverAddress = FALLBACK_SERVER_ADDRESS;
-        if (args.rankUrl == NULL) {
-            args.rankUrl = FALLBACK_RANK_URL;
-        }
     }
 
     if (args.logPath == NULL) {
@@ -549,14 +540,12 @@ print_args()
     printf("verbose: %s\n", args.verboseLogging ? "true" : "false");
     printf("address: %s\n", args.serverAddress);
     printf("asseturl: %s\n", args.assetUrl);
-    printf("rankurl: %s\n", args.rankUrl);
-    printf("images: %s\n", args.imagesUrl);
-    printf("sponsor: %s\n", args.sponsorImageUrl);
-    printf("loaderimages: %s\n", args.loaderImageUrl);
+    printf("endpoint: %s\n", args.endpointHost);
     printf("username: %s\n", args.tegId);
     printf("token: %s\n", args.authId == NULL ? "(null)" : "********");
     printf("width: %d\n", args.windowWidth);
     printf("height: %d\n", args.windowHeight);
+    printf("loader-images: %s\n", args.useEndpointLoadingScreen ? "true" : "false");
     printf("force-vulkan: %s\n", args.forceVulkan ? "true" : "false");
     printf("force-opengl: %s\n", args.forceOpenGl ? "true" : "false");
 }
