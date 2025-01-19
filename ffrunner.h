@@ -9,6 +9,7 @@
 
 #include <windows.h>
 #include <wininet.h>
+#include <shellscalingapi.h>
 #include <dxgi.h>
 
 #include "npapi/npapi.h"
