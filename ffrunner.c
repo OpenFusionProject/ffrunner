@@ -594,6 +594,7 @@ main(int argc, char **argv)
     }
     SetEnvironmentVariableA("UNITY_DISABLE_PLUGIN_UPDATES", "yes");
     SetEnvironmentVariableA("LANG", NULL); // webplayer crashes if this is set
+    SetEnvironmentVariableA("UNITY_KEEP_LOG_FILES", "yes");
 
     if (args.forceVulkan) {
         SetEnvironmentVariableA("UNITY_FF_DX_DLL", "d3d9_vulkan.dll");
