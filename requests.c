@@ -72,7 +72,7 @@ get_redirected(char *url, char* newUrl)
     /* redirect loading images if set */
     if (args.useEndpointLoadingScreen && strstr(url, "assets/img") == url) {
         char *rest = url + strlen("assets/img");
-        snprintf(newUrl, MAX_URL_LENGTH, "http://%s/launcher/loading%s", args.endpointHost, rest);
+        snprintf(newUrl, MAX_URL_LENGTH, "https://%s/launcher/loading%s", args.endpointHost, rest);
         return;
     }
 
@@ -434,10 +434,10 @@ init_as_file:
     if (args.endpointHost != NULL) {
         fileExists = GetFileAttributesA(req->url) != INVALID_FILE_ATTRIBUTES;
         if (!fileExists) {
-            snprintf(endpointUrl, MAX_URL_LENGTH, "http://%s/%s", args.endpointHost, fileName);
+            snprintf(endpointUrl, MAX_URL_LENGTH, "https://%s/%s", args.endpointHost, fileName);
             /* need to crack the URL again post-fmt */
             if (InternetCrackUrlA(endpointUrl, strlen(endpointUrl), 0, &urlComponents)) {
-                logmsg("checking endpoint for %s (http://%s/%s)\n", fileName, args.endpointHost, fileName);
+                logmsg("checking endpoint for %s (%s)\n", fileName, endpointUrl);
                 req->source = REQ_SRC_HTTP;
                 init_request_http(req, hostname, filePath, urlComponents.nScheme, urlComponents.nPort);
                 return;
