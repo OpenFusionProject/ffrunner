@@ -1,8 +1,8 @@
 # ffrunner
-ffrunner is a slim Wind32 application that hosts a single windowed Netscape Plugin instance in place of an NPAPI-compatible web browser. ffrunner was made to run FusionFall with zero dependencies. As such, it only implements APIs used by the Unity Web Player and contains some FusionFall-specific logic and file mappings, but it can be adapted to run any generic NPAPI plugin.
+ffrunner is a slim Wind32 application that hosts a single windowed Netscape Plugin instance in place of an NPAPI-compatible web browser. ffrunner was made to run FusionFall with zero 3rd-party dependencies. As such, it only implements APIs used by the Unity Web Player and contains some FusionFall-specific logic and file mappings, but it can be adapted to run any generic NPAPI plugin.
 - a Unicode-aware window 
 - an asynchronous I/O threadpool with support for HTTP GET/POST through wininet
-- command-line arguments
+- configuration through command-line arguments
 
 ## Building
 It is recommended to build ffrunner with mingw to minimize MSVC runtime dependencies, in which case you can build it with:
