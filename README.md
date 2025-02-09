@@ -19,5 +19,5 @@ and find the solution in the `build` directory.
 ffrunner loads the plugin file passed in through the `-m` argument.
 
 ## Known Issues
-- Wine's implementation of wininet does not correctly handle HTTP resource caching
+- Wine's implementation of wininet does not do any HTTP resource caching
 - When running FusionFall in Wine with ffrunner, scroll wheel inputs are occasionally ignored
