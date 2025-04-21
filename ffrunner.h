@@ -35,6 +35,8 @@
 #define ARRLEN(x) (sizeof(x)/sizeof(*x))
 #define MIN(a, b) (a > b ? b : a)
 
+typedef HRESULT (WINAPI *SetProcessDpiAwarenessFunc)(PROCESS_DPI_AWARENESS awareness);
+
 typedef NPError     (OSCALL *NP_GetEntryPointsFuncOS)(NPPluginFuncs*);
 typedef NPError     (OSCALL *NP_InitializeFuncOS)(NPNetscapeFuncs*);
 typedef NPError     (OSCALL *NP_ShutdownFuncOS)(void);

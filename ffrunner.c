@@ -551,6 +551,26 @@ print_args()
     printf("force-opengl: %s\n", args.forceOpenGl ? "true" : "false");
 }
 
+void
+enable_dpi_awareness() {
+    HMODULE shcore = LoadLibraryA("shcore.dll");
+    if (shcore) {
+        SetProcessDpiAwarenessFunc setDpiAwareness =
+            (SetProcessDpiAwarenessFunc)GetProcAddress(shcore, "SetProcessDpiAwareness");
+        if (setDpiAwareness) {
+            if (setDpiAwareness(PROCESS_PER_MONITOR_DPI_AWARE) == S_OK) {
+                logmsg("Set DPI awareness to PROCESS_PER_MONITOR_DPI_AWARE\n");
+            } else {
+                logmsg("Failed to set DPI awareness: %d\n", GetLastError());
+            }
+        }
+        FreeLibrary(shcore);
+    } else {
+        // Fallback for older systems
+        SetProcessDPIAware();
+    }
+}
+
 int
 main(int argc, char **argv)
 {
@@ -565,18 +585,7 @@ main(int argc, char **argv)
     print_args();
     init_logging(args.logPath, args.verboseLogging);
 
-    PROCESS_DPI_AWARENESS dpi;
-    if (GetProcessDpiAwareness(NULL, &dpi) == S_OK) {
-        if (dpi == PROCESS_DPI_UNAWARE) {
-            if (SetProcessDpiAwareness(PROCESS_PER_MONITOR_DPI_AWARE) == S_OK) {
-                logmsg("Set DPI awareness to PROCESS_PER_MONITOR_DPI_AWARE\n");
-            } else {
-                logmsg("Failed to set DPI awareness: %d\n", GetLastError());
-            }
-        }
-    } else {
-        logmsg("Failed to get DPI awareness: %d\n", GetLastError());
-    }
+    enable_dpi_awareness();
 
     if (args.serverAddress == NULL) {
         logmsg("No server address provided.");
