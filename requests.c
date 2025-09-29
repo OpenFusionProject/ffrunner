@@ -246,7 +246,9 @@ retry:
             cacheData = realloc(cacheData, lenlen);
             goto retry;
         }
-        assert(err == ERROR_FILE_NOT_FOUND);
+        if (err != ERROR_FILE_NOT_FOUND) {
+            logmsg("RetrieveUrlCacheEntryFileA returned unexpected err %d\n", err);
+        }
         goto cleanup;
     }
 
