@@ -587,6 +587,13 @@ main(int argc, char **argv)
 
     enable_dpi_awareness();
 
+    char *winePrefix = getenv("WINEPREFIX");
+    if (winePrefix) {
+        logmsg("WINEPREFIX is set to: %s\n", winePrefix);
+    } else {
+        logmsg("WINEPREFIX is not set.\n");
+    }
+
     if (args.serverAddress == NULL) {
         logmsg("No server address provided.");
         exit(1);
