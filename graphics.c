@@ -5,7 +5,8 @@ HWND hwnd;
 LRESULT CALLBACK
 window_proc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 {
-    UINT width, height;
+    RECT windowRect;
+    UINT windowState;
     PAINTSTRUCT ps;
     HDC hdc;
     Request *req;
@@ -26,14 +27,36 @@ window_proc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 
         EndPaint(hwnd, &ps);
         return 0;
-    case WM_SIZE:
-        width = LOWORD(lParam);
-        height = HIWORD(lParam);
+    case WM_MOVE:
+        if (GetClientRect(hwnd, &windowRect)) {
+            npWin.x = windowRect.left;
+            npWin.y = windowRect.top;
+        }
 
-        npWin.width = npWin.clipRect.right = width;
-        npWin.height = npWin.clipRect.bottom = height;
         pluginFuncs.setwindow(&npp, &npWin);
-        return 0;
+        /* Let DefWindowProc handle the rest. */
+        break;
+    case WM_SIZE:
+        windowState = wParam;
+
+        npWin.clipRect.top = 0;
+        npWin.clipRect.left = 0;
+
+        if (windowState == SIZE_MINIMIZED) {
+            npWin.clipRect.right = 0;
+            npWin.clipRect.bottom = 0;
+        } else {
+            if (GetClientRect(hwnd, &windowRect)) {
+                npWin.width = windowRect.right - windowRect.left;
+                npWin.height = windowRect.bottom - windowRect.top;
+                npWin.clipRect.right = npWin.width;
+                npWin.clipRect.bottom = npWin.height;
+            }
+        }
+
+        pluginFuncs.setwindow(&npp, &npWin);
+        /* Let DefWindowProc handle the rest. */
+        break;
     }
 
     if (uMsg == ioMsg) {
