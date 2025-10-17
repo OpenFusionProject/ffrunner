@@ -11,7 +11,7 @@ BEGIN
       VALUE "FileDescription", "FusionFall"
       VALUE "FileVersion", "1.0"
       VALUE "InternalName", "ffrunner"
-      VALUE "LegalCopyright", "(C) 2024 OpenFusion Contributors"
+      VALUE "LegalCopyright", "(C) 2025 OpenFusion Contributors"
       VALUE "OriginalFilename", "ffrunner.exe"
       VALUE "ProductName", "FusionFall"
       VALUE "ProductVersion", "1.0"
