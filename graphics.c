@@ -79,6 +79,8 @@ prepare_window(uint32_t width, uint32_t height)
     WNDCLASSW wc = {0};
     HICON hIcon;
     int x, y;
+    wchar_t *windowName;
+    size_t windowNameLen;
 
     wc.lpfnWndProc   = window_proc;
     wc.hInstance     = GetModuleHandleW(NULL);
@@ -93,7 +95,12 @@ prepare_window(uint32_t width, uint32_t height)
     x = (GetSystemMetrics(SM_CXSCREEN) - width) / 2;
     y = (GetSystemMetrics(SM_CYSCREEN) - height) / 2;
 
-    hwnd = CreateWindowExW(0, CLASS_NAME, L"FusionFall", WS_OVERLAPPEDWINDOW, x, y, width, height, 0, 0, GetModuleHandleW(NULL), 0);
+    windowNameLen = strlen(args.windowName) + 1;
+    windowName = (wchar_t*)malloc(sizeof(wchar_t) * windowNameLen);
+    mbstowcs(windowName, args.windowName, windowNameLen);
+
+    hwnd = CreateWindowExW(0, CLASS_NAME, windowName, WS_OVERLAPPEDWINDOW, x, y, width, height, 0, 0, GetModuleHandleW(NULL), 0);
+    free(windowName);
 }
 
 void

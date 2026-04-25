@@ -487,6 +487,8 @@ parse_args(int argc, char **argv)
             args.forceVulkan = true;
         } else if (ARG_LONG("force-opengl")) {
             args.forceOpenGl = true;
+        } else if (ARG_LONG("name")) case 'n': {
+            args.windowName = ARG_VAL();
         } else if (ARG_LONG("help")) case 'h': {
             puts("Usage: ffrunner.exe [OPTION...]");
             puts("  -m, --main=STR          The main URL to load");
@@ -502,6 +504,7 @@ parse_args(int argc, char **argv)
             puts("      --loader-images     Use loading screen images from endpoint");
             puts("      --force-vulkan      Force Vulkan renderer");
             puts("      --force-opengl      Force OpenGL renderer");
+            puts("  -n, --name=STR          Set the window name");
             puts("  -h, --help              Display this help menu");
             puts("");
             exit(0);
@@ -531,6 +534,10 @@ parse_args(int argc, char **argv)
     if (args.windowHeight == 0) {
         args.windowHeight = DEFAULT_HEIGHT;
     }
+
+    if (args.windowName == NULL) {
+        args.windowName = DEFAULT_WINDOW_NAME;
+    }
 }
 
 void
@@ -549,6 +556,7 @@ print_args()
     printf("loader-images: %s\n", args.useEndpointLoadingScreen ? "true" : "false");
     printf("force-vulkan: %s\n", args.forceVulkan ? "true" : "false");
     printf("force-opengl: %s\n", args.forceOpenGl ? "true" : "false");
+    printf("name: %s\n", args.windowName);
 }
 
 void

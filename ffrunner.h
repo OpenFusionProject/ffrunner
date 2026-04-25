@@ -26,6 +26,7 @@
 #define MAX_URL_LENGTH 256
 #define DEFAULT_WIDTH 1280
 #define DEFAULT_HEIGHT 720
+#define DEFAULT_WINDOW_NAME "FusionFall"
 
 // we default to local server with 104 assets
 #define FALLBACK_SRC_URL "http://cdn.dexlabs.systems/ff/big/beta-20100104/main.unity3d"
@@ -97,6 +98,7 @@ struct Arguments {
     char *endpointHost;
     char *tegId;
     char *authId;
+    char *windowName;
     uint32_t windowWidth;
     uint32_t windowHeight;
     bool useEndpointLoadingScreen;
