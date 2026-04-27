@@ -481,6 +481,8 @@ parse_args(int argc, char **argv)
             args.windowWidth = atoi(ARG_VAL());
         } else if (ARG_LONG("height")) {
             args.windowHeight = atoi(ARG_VAL());
+        } else if (ARG_LONG("icon")) case 'i': {
+            args.useEndpointIcon = true;
         } else if (ARG_LONG("loader-images")) {
             args.useEndpointLoadingScreen = true;
         } else if (ARG_LONG("force-vulkan")) {
@@ -501,6 +503,7 @@ parse_args(int argc, char **argv)
             puts("  -t, --token=STR         Password or token for auto-login");
             puts("      --width=INT         The width of the window");
             puts("      --height=INT        The height of the window");
+            puts("  -i, --icon              Use icon from endpoint");
             puts("      --loader-images     Use loading screen images from endpoint");
             puts("      --force-vulkan      Force Vulkan renderer");
             puts("      --force-opengl      Force OpenGL renderer");
@@ -553,6 +556,7 @@ print_args()
     printf("token: %s\n", args.authId == NULL ? "(null)" : "********");
     printf("width: %d\n", args.windowWidth);
     printf("height: %d\n", args.windowHeight);
+    printf("icon: %s\n", args.useEndpointIcon ? "true" : "false");
     printf("loader-images: %s\n", args.useEndpointLoadingScreen ? "true" : "false");
     printf("force-vulkan: %s\n", args.forceVulkan ? "true" : "false");
     printf("force-opengl: %s\n", args.forceOpenGl ? "true" : "false");
@@ -579,6 +583,75 @@ enable_dpi_awareness() {
     }
 }
 
+HANDLE
+gen_temp_file(char *outPath)
+{
+    char tempPath[MAX_PATH];
+    char tempFile[MAX_PATH];
+    HANDLE hFile;
+    DWORD fileFlags = FILE_ATTRIBUTE_HIDDEN | FILE_ATTRIBUTE_TEMPORARY;
+
+    if (!GetTempPath2A(MAX_PATH, tempPath)) {
+        logmsg("GetTempPath2A failed: %d\n", GetLastError());
+        return INVALID_HANDLE_VALUE;
+    }
+
+    if (!GetTempFileNameA(tempPath, "ff", 0, tempFile)) {
+        logmsg("GetTempFileNameA failed: %d\n", GetLastError());
+        return INVALID_HANDLE_VALUE;
+    }
+
+    logmsg("Generated temp file: %s\n", tempFile);
+    hFile = CreateFileA(tempFile, GENERIC_READ | GENERIC_WRITE,
+                        FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, NULL, CREATE_ALWAYS, fileFlags, NULL);
+
+    if (hFile == INVALID_HANDLE_VALUE) {
+        logmsg("CreateFileA failed for temp file: %d\n", GetLastError());
+        return INVALID_HANDLE_VALUE;
+    }
+
+    if (outPath) {
+        strncpy(outPath, tempFile, MAX_PATH);
+    }
+
+    return hFile;
+}
+
+void
+fetch_icon(char *outPath)
+{
+    char endpointUrl[MAX_URL_LENGTH];
+    HANDLE iconFile;
+    HANDLE doneSignal;
+    DWORD waitResult;
+
+    iconFile = gen_temp_file(outPath);
+    if (iconFile == INVALID_HANDLE_VALUE) {
+        return;
+    }
+
+    doneSignal = CreateEventA(NULL, TRUE, FALSE, NULL);
+
+    snprintf(endpointUrl, MAX_URL_LENGTH, "https://%s/launcher/icon.ico", args.endpointHost);
+    register_download_request(endpointUrl, iconFile, doneSignal);
+
+    waitResult = WaitForSingleObject(doneSignal, 5000);
+    CloseHandle(doneSignal);
+    complete_request();
+
+    if (waitResult == WAIT_OBJECT_0) {
+        logmsg("Icon downloaded successfully.\n");
+        CloseHandle(iconFile);
+        return;
+    } else if (waitResult == WAIT_TIMEOUT) {
+        logmsg("Failed to download icon within timeout.\n");
+    } else {
+        logmsg("Error while waiting for icon download: %d\n", GetLastError());
+    }
+
+    CloseHandle(iconFile);
+}
+
 int
 main(int argc, char **argv)
 {
@@ -588,6 +661,7 @@ main(int argc, char **argv)
     NPError ret;
     HMODULE loader;
     RECT winRect;
+    char iconFile[MAX_PATH];
 
     parse_args(argc, argv);
     print_args();
@@ -648,11 +722,17 @@ main(int argc, char **argv)
         exit(1);
     }
 
-    prepare_window(args.windowWidth, args.windowHeight);
-    assert(hwnd);
-
     srcUrl = args.mainPathOrAddress;
     init_network(srcUrl);
+
+    char *iconToUse = NULL;
+    if (args.useEndpointIcon) {
+        fetch_icon(iconFile);
+        iconToUse = iconFile;
+    }
+
+    prepare_window(args.windowWidth, args.windowHeight, iconToUse);
+    assert(hwnd);
 
     logmsg("> NP_GetEntryPoints\n");
     ret = NP_GetEntryPoints(&pluginFuncs);

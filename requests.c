@@ -189,12 +189,7 @@ handle_io_progress(Request *req)
             }
         }
 
-        nRequests--;
-        if (!mainLoaded && nRequests == 0) {
-            logmsg("Ready to load main\n");
-            on_load_ready();
-            mainLoaded = true;
-        }
+        complete_request();
 
         return true;
     }
@@ -500,7 +495,7 @@ handle_request(PTP_CALLBACK_INSTANCE inst, void *reqArg, PTP_WORK work)
 {
     Request *req;
 
-    req = reqArg;
+    req = (Request *)reqArg;
     while (!req->done) {
         if (req->source == REQ_SRC_UNSET) {
             init_request(req);
@@ -508,8 +503,23 @@ handle_request(PTP_CALLBACK_INSTANCE inst, void *reqArg, PTP_WORK work)
         if (!req->failed) {
             progress_request(req);
         }
-        PostMessageW(hwnd, ioMsg, (WPARAM)NULL, (LPARAM)req);
-        WaitForSingleObject(req->readyEvent, INFINITE);
+
+        if (req->hOutFile != INVALID_HANDLE_VALUE) {
+            /* write directly to output file */
+            DWORD written;
+            if (req->writeSize > 0) {
+                WriteFile(req->hOutFile, req->buf, req->writeSize, &written, NULL);
+            }
+            req->writePtr = req->writeSize;
+        } else {
+            /* notify main thread to pipe progress to the plugin */
+            PostMessageW(hwnd, ioMsg, (WPARAM)NULL, (LPARAM)req);
+            WaitForSingleObject(req->readyEvent, INFINITE);
+        }
+    }
+
+    if (req->doneEvent != INVALID_HANDLE_VALUE) {
+        SetEvent(req->doneEvent);
     }
 }
 
@@ -541,7 +551,9 @@ register_get_request(const char *url, bool doNotify, void *notifyData)
         .notifyData = notifyData,
         .doNotify = doNotify,
         .isPost = false,
-        .postDataLen = 0
+        .postDataLen = 0,
+        .hOutFile = INVALID_HANDLE_VALUE,
+        .doneEvent = INVALID_HANDLE_VALUE
     };
     strncpy(req->originalUrl, url, MAX_URL_LENGTH);
 
@@ -562,12 +574,45 @@ register_post_request(const char *url, bool doNotify, void *notifyData, uint32_t
         .notifyData = notifyData,
         .doNotify = doNotify,
         .isPost = true,
-        .postDataLen = postDataLen
+        .postDataLen = postDataLen,
+        .hOutFile = INVALID_HANDLE_VALUE,
+        .doneEvent = INVALID_HANDLE_VALUE
     };
     strncpy(req->originalUrl, url, MAX_URL_LENGTH);
     memcpy(req->postData, postData, postDataLen);
 
     submit_request(req);
+}
+
+void
+register_download_request(const char *url, HANDLE outFile, HANDLE onDone)
+{
+    Request *req;
+
+    assert(strlen(url) < MAX_URL_LENGTH);
+
+    req = malloc(sizeof(*req));
+
+    *req = (Request){
+        .doNotify = false,
+        .isPost = false,
+        .postDataLen = 0,
+        .hOutFile = outFile,
+        .doneEvent = onDone
+    };
+    strncpy(req->originalUrl, url, MAX_URL_LENGTH);
+
+    submit_request(req);
+}
+
+void complete_request()
+{
+    nRequests--;
+    if (!mainLoaded && nRequests == 0) {
+        logmsg("Ready to load main\n");
+        on_load_ready();
+        mainLoaded = true;
+    }
 }
 
 void

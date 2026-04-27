@@ -74,10 +74,10 @@ window_proc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 }
 
 void
-prepare_window(uint32_t width, uint32_t height)
+prepare_window(uint32_t width, uint32_t height, const char *iconFile)
 {
     WNDCLASSW wc = {0};
-    HICON hIcon;
+    HICON hIcon = NULL;
     int x, y;
     wchar_t *windowName;
     size_t windowNameLen;
@@ -87,7 +87,17 @@ prepare_window(uint32_t width, uint32_t height)
     wc.lpszClassName = CLASS_NAME;
     wc.style         = CS_DBLCLKS;
 
-    hIcon = LoadIconW(wc.hInstance, MAKEINTRESOURCEW(0));
+    if (iconFile) {
+        hIcon = (HICON)LoadImageA(NULL, iconFile, IMAGE_ICON, 0, 0, LR_LOADFROMFILE | LR_DEFAULTSIZE);
+        if (!hIcon) {
+            logmsg("Failed to load icon from %s: %d\n", iconFile, GetLastError());
+        }
+    }
+
+    if (!hIcon) {
+        hIcon = LoadIconW(wc.hInstance, MAKEINTRESOURCEW(0));
+    }
+
     wc.hIcon = hIcon;
 
     RegisterClassW(&wc);

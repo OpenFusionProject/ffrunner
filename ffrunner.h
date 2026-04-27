@@ -78,6 +78,10 @@ struct Request {
     bool done;
     NPReason doneReason;
     bool failed;
+    HANDLE doneEvent;
+
+    /* output (if set, write to file instead of plugin) */
+    HANDLE hOutFile;
 
     /* handle */
     union {
@@ -102,6 +106,7 @@ struct Arguments {
     uint32_t windowWidth;
     uint32_t windowHeight;
     bool useEndpointLoadingScreen;
+    bool useEndpointIcon;
     bool verboseLogging;
     bool forceVulkan;
     bool forceOpenGl;
@@ -120,11 +125,13 @@ extern UINT ioMsg;
 
 void register_get_request(const char *url, bool doNotify, void *notifyData);
 void register_post_request(const char *url, bool doNotify, void *notifyData, uint32_t postDataLen, const char *postData);
+void register_download_request(const char *url, HANDLE outFile, HANDLE onDone);
 bool handle_io_progress(Request *req);
 void submit_request(Request *req);
+void complete_request();
 void init_network(char *mainSrcUrl);
 
-void prepare_window(uint32_t width, uint32_t height);
+void prepare_window(uint32_t width, uint32_t height, const char *iconFile);
 void show_error_dialog(char *msg);
 void open_link(char *url);
 void message_loop(void);
