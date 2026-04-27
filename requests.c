@@ -523,8 +523,8 @@ handle_request(PTP_CALLBACK_INSTANCE inst, void *reqArg, PTP_WORK work)
     }
 }
 
-void
-submit_request(Request *req)
+static void
+submit_request_work(Request *req)
 {
     PTP_WORK work;
 
@@ -535,6 +535,12 @@ submit_request(Request *req)
     assert(work);
 
     SubmitThreadpoolWork(work);
+}
+
+void
+submit_request(Request *req)
+{
+    submit_request_work(req);
     nRequests++;
 }
 
@@ -602,7 +608,7 @@ register_temp_request(const char *url, HANDLE outFile, HANDLE onDone)
     };
     strncpy(req->originalUrl, url, MAX_URL_LENGTH);
 
-    submit_request(req);
+    submit_request_work(req);
 }
 
 void complete_request()

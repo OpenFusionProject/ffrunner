@@ -591,8 +591,8 @@ gen_temp_file(char *outPath)
     HANDLE hFile;
     DWORD fileFlags = FILE_ATTRIBUTE_HIDDEN | FILE_ATTRIBUTE_TEMPORARY;
 
-    if (!GetTempPath2A(MAX_PATH, tempPath)) {
-        logmsg("GetTempPath2A failed: %d\n", GetLastError());
+    if (!GetTempPathA(MAX_PATH, tempPath)) {
+        logmsg("GetTempPathA failed: %d\n", GetLastError());
         return INVALID_HANDLE_VALUE;
     }
 
@@ -617,7 +617,7 @@ gen_temp_file(char *outPath)
     return hFile;
 }
 
-void
+bool
 fetch_icon(char *iconUrl, char *outPath)
 {
     HANDLE iconFile;
@@ -626,20 +626,22 @@ fetch_icon(char *iconUrl, char *outPath)
 
     iconFile = gen_temp_file(outPath);
     if (iconFile == INVALID_HANDLE_VALUE) {
-        return;
+        logmsg("Failed to create temp file for icon: %d\n", GetLastError());
+        return false;
     }
 
+    logmsg("Downloading icon to %s\n", outPath);
     doneSignal = CreateEventA(NULL, TRUE, FALSE, NULL);
     register_temp_request(iconUrl, iconFile, doneSignal);
 
-    waitResult = WaitForSingleObject(doneSignal, 5000);
+    /* 3-second timeout for icon download so we don't hang if something goes wrong */
+    waitResult = WaitForSingleObject(doneSignal, 3000);
     CloseHandle(doneSignal);
-    complete_request();
 
     if (waitResult == WAIT_OBJECT_0) {
         logmsg("Icon downloaded successfully.\n");
         CloseHandle(iconFile);
-        return;
+        return true;
     } else if (waitResult == WAIT_TIMEOUT) {
         logmsg("Failed to download icon within timeout.\n");
     } else {
@@ -647,6 +649,7 @@ fetch_icon(char *iconUrl, char *outPath)
     }
 
     CloseHandle(iconFile);
+    return false;
 }
 
 int
@@ -721,11 +724,14 @@ main(int argc, char **argv)
 
     srcUrl = args.mainPathOrAddress;
     init_network(srcUrl);
+    logmsg("Request pool initialized\n");
 
     char *iconToUse = NULL;
     if (args.windowIcon) {
-        fetch_icon(args.windowIcon, iconFile);
-        iconToUse = iconFile;
+        logmsg("Fetching icon: %s\n", args.windowIcon);
+        if (fetch_icon(args.windowIcon, iconFile)) {
+            iconToUse = iconFile;
+        }
     }
 
     prepare_window(args.windowWidth, args.windowHeight, iconToUse);

@@ -88,7 +88,7 @@ prepare_window(uint32_t width, uint32_t height, const char *iconFile)
     wc.style         = CS_DBLCLKS;
 
     if (iconFile) {
-        hIcon = (HICON)LoadImageA(NULL, iconFile, IMAGE_ICON, 0, 0, LR_LOADFROMFILE | LR_DEFAULTSIZE);
+        hIcon = (HICON)LoadImageA(NULL, iconFile, IMAGE_ICON, 256, 256, LR_LOADFROMFILE);
         if (!hIcon) {
             logmsg("Failed to load icon from %s: %d\n", iconFile, GetLastError());
         }
