@@ -482,7 +482,7 @@ parse_args(int argc, char **argv)
         } else if (ARG_LONG("height")) {
             args.windowHeight = atoi(ARG_VAL());
         } else if (ARG_LONG("icon")) case 'i': {
-            args.useEndpointIcon = true;
+            args.windowIcon = ARG_VAL();
         } else if (ARG_LONG("loader-images")) {
             args.useEndpointLoadingScreen = true;
         } else if (ARG_LONG("force-vulkan")) {
@@ -503,7 +503,7 @@ parse_args(int argc, char **argv)
             puts("  -t, --token=STR         Password or token for auto-login");
             puts("      --width=INT         The width of the window");
             puts("      --height=INT        The height of the window");
-            puts("  -i, --icon              Use icon from endpoint");
+            puts("  -i, --icon              URL of icon to use for the window");
             puts("      --loader-images     Use loading screen images from endpoint");
             puts("      --force-vulkan      Force Vulkan renderer");
             puts("      --force-opengl      Force OpenGL renderer");
@@ -556,7 +556,7 @@ print_args()
     printf("token: %s\n", args.authId == NULL ? "(null)" : "********");
     printf("width: %d\n", args.windowWidth);
     printf("height: %d\n", args.windowHeight);
-    printf("icon: %s\n", args.useEndpointIcon ? "true" : "false");
+    printf("icon: %s\n", args.windowIcon);
     printf("loader-images: %s\n", args.useEndpointLoadingScreen ? "true" : "false");
     printf("force-vulkan: %s\n", args.forceVulkan ? "true" : "false");
     printf("force-opengl: %s\n", args.forceOpenGl ? "true" : "false");
@@ -618,9 +618,8 @@ gen_temp_file(char *outPath)
 }
 
 void
-fetch_icon(char *outPath)
+fetch_icon(char *iconUrl, char *outPath)
 {
-    char endpointUrl[MAX_URL_LENGTH];
     HANDLE iconFile;
     HANDLE doneSignal;
     DWORD waitResult;
@@ -631,9 +630,7 @@ fetch_icon(char *outPath)
     }
 
     doneSignal = CreateEventA(NULL, TRUE, FALSE, NULL);
-
-    snprintf(endpointUrl, MAX_URL_LENGTH, "https://%s/launcher/icon.ico", args.endpointHost);
-    register_download_request(endpointUrl, iconFile, doneSignal);
+    register_temp_request(iconUrl, iconFile, doneSignal);
 
     waitResult = WaitForSingleObject(doneSignal, 5000);
     CloseHandle(doneSignal);
@@ -726,8 +723,8 @@ main(int argc, char **argv)
     init_network(srcUrl);
 
     char *iconToUse = NULL;
-    if (args.useEndpointIcon) {
-        fetch_icon(iconFile);
+    if (args.windowIcon) {
+        fetch_icon(args.windowIcon, iconFile);
         iconToUse = iconFile;
     }
 

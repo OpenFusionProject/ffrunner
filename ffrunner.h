@@ -103,10 +103,10 @@ struct Arguments {
     char *tegId;
     char *authId;
     char *windowName;
+    char *windowIcon;
     uint32_t windowWidth;
     uint32_t windowHeight;
     bool useEndpointLoadingScreen;
-    bool useEndpointIcon;
     bool verboseLogging;
     bool forceVulkan;
     bool forceOpenGl;
@@ -125,7 +125,7 @@ extern UINT ioMsg;
 
 void register_get_request(const char *url, bool doNotify, void *notifyData);
 void register_post_request(const char *url, bool doNotify, void *notifyData, uint32_t postDataLen, const char *postData);
-void register_download_request(const char *url, HANDLE outFile, HANDLE onDone);
+void register_temp_request(const char *url, HANDLE outFile, HANDLE onDone);
 bool handle_io_progress(Request *req);
 void submit_request(Request *req);
 void complete_request();

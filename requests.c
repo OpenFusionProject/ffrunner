@@ -585,7 +585,7 @@ register_post_request(const char *url, bool doNotify, void *notifyData, uint32_t
 }
 
 void
-register_download_request(const char *url, HANDLE outFile, HANDLE onDone)
+register_temp_request(const char *url, HANDLE outFile, HANDLE onDone)
 {
     Request *req;
 
