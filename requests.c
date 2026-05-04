@@ -236,10 +236,12 @@ try_init_from_cache(Request *req, char *hostname, char *filePath, INTERNET_SCHEM
     DWORD contentLength;
     DWORD flags;
     bool success;
-    bool deleteCache;
+    bool hasCacheEntry;
+    size_t lockRetryCount;
 
     success = false;
-    deleteCache = false;
+    hasCacheEntry = false;
+    hFile = INVALID_HANDLE_VALUE;
     hConn = NULL;
     hReq = NULL;
     lenlen = sizeof(INTERNET_CACHE_ENTRY_INFOA) + MAX_URL_LENGTH + MAX_PATH;
@@ -257,6 +259,12 @@ retry:
         if (err != ERROR_FILE_NOT_FOUND) {
             logmsg("RetrieveUrlCacheEntryFileA returned unexpected err %d\n", err);
         }
+        goto cleanup;
+    }
+    hasCacheEntry = true;
+
+    hFile = CreateFileA(cacheData->lpszLocalFileName, GENERIC_READ, FILE_SHARE_READ, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
+    if (hFile == INVALID_HANDLE_VALUE) {
         goto cleanup;
     }
 
@@ -281,11 +289,6 @@ retry:
         }
     }
 
-    hFile = CreateFileA(cacheData->lpszLocalFileName, GENERIC_READ, FILE_SHARE_READ, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
-    if (hFile == INVALID_HANDLE_VALUE) {
-        goto cleanup;
-    }
-
     /* Compare actual file size on disk against Content-Length to catch truncation. */
     if (hReq != NULL) {
         DWORD fileSize = GetFileSize(hFile, NULL);
@@ -295,8 +298,6 @@ retry:
             && fileSize != contentLength) {
             logmsg("Cache file truncated for %s: on disk %d, expected %d\n",
                 req->url, fileSize, contentLength);
-            CloseHandle(hFile);
-            deleteCache = true;
             goto cleanup;
         }
     }
@@ -317,10 +318,33 @@ cleanup:
         InternetCloseHandle(hConn);
     }
     if (!success) {
-        UnlockUrlCacheEntryFileA(req->url, 0);
-        if (deleteCache) {
-            DeleteUrlCacheEntryA(req->url);
-            logmsg("Deleted cache entry for %s\n", req->url);
+        if (hasCacheEntry) {
+            /*
+             * The lock count on disk may be polluted, so try to drain a
+             * reasonable amount of them here. If we still ultimately fail to
+             * unlock, that's fine; it just means the bad cache entry will be checked
+             * again on the next request, which will drain the locks even more.
+             */
+            lockRetryCount = 64;
+            while (UnlockUrlCacheEntryFileA(req->url, 0))
+            {
+                lockRetryCount--;
+                if (lockRetryCount == 0) {
+                    logmsg("Cache entry for %s is hard locked\n", req->url);
+                    break;
+                }
+            }
+            if (DeleteUrlCacheEntryA(req->url)) {
+                logmsg("Deleted cache entry for %s\n", req->url);
+            } else {
+                logmsg("Failed to delete cache entry for %s: %d\n", req->url, GetLastError());
+            }
+        }
+
+        if (hFile != INVALID_HANDLE_VALUE) {
+            CloseHandle(hFile);
+            /* deleting the cache entry doesn't delete the file */
+            DeleteFileA(cacheData->lpszLocalFileName);
         }
     }
     free(cacheData);
