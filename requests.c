@@ -180,6 +180,10 @@ handle_io_progress(Request *req)
             CloseHandle(req->handles.hFile);
         }
 
+        if (req->source == REQ_SRC_CACHE) {
+            UnlockUrlCacheEntryFileA(req->originalUrl, 0);
+        }
+
         if (req->source == REQ_SRC_HTTP) {
             if (req->handles.http.hReq != NULL) {
                 InternetCloseHandle(req->handles.http.hReq);
@@ -248,7 +252,8 @@ retry:
     }
 
     /* If we have internet, check the last modified time of the resource. If it's newer than what we have cached, bail. */
-    hUrl = InternetOpenUrlA(hInternet, req->url, NULL, 0, 0, (DWORD_PTR)NULL);
+    hUrl = InternetOpenUrlA(hInternet, req->url, NULL, 0,
+        INTERNET_FLAG_RELOAD | INTERNET_FLAG_NO_CACHE_WRITE, (DWORD_PTR)NULL);
     lenlen = sizeof(modifiedTimeSys);
     if (hUrl != NULL
         && HttpQueryInfoA(hUrl, HTTP_QUERY_FLAG_SYSTEMTIME | HTTP_QUERY_LAST_MODIFIED, &modifiedTimeSys, &lenlen, 0)
@@ -268,6 +273,9 @@ retry:
     success = true;
 
 cleanup:
+    if (!success) {
+        UnlockUrlCacheEntryFileA(req->url, 0);
+    }
     if (hUrl != NULL) {
         InternetCloseHandle(hUrl);
     }
@@ -494,15 +502,23 @@ VOID CALLBACK
 handle_request(PTP_CALLBACK_INSTANCE inst, void *reqArg, PTP_WORK work)
 {
     Request *req;
+    bool done;
 
     req = (Request *)reqArg;
-    while (!req->done) {
+    done = false;
+    while (!done) {
         if (req->source == REQ_SRC_UNSET) {
             init_request(req);
         }
         if (!req->failed) {
             progress_request(req);
         }
+
+        /*
+         * Capture done state before posting to the main thread,
+         * since the main thread may free req after processing.
+         */
+        done = req->done || req->failed;
 
         if (req->hOutFile != INVALID_HANDLE_VALUE) {
             /* write directly to output file */
