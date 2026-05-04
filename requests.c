@@ -232,12 +232,18 @@ try_init_from_cache(Request *req)
     HINTERNET hUrl;
     SYSTEMTIME modifiedTimeSys;
     FILETIME modifiedTimeFile;
+    DWORD contentLength;
     bool success;
+    bool deleteCache;
 
     success = false;
+    deleteCache = false;
     hUrl = NULL;
     lenlen = sizeof(INTERNET_CACHE_ENTRY_INFOA) + MAX_URL_LENGTH + MAX_PATH;
     cacheData = malloc(lenlen);
+
+    logmsg("Checking cache for %s\n", req->url);
+
 retry:
     if (!RetrieveUrlCacheEntryFileA(req->url, cacheData, &lenlen, 0)) {
         err = GetLastError();
@@ -251,15 +257,18 @@ retry:
         goto cleanup;
     }
 
-    /* If we have internet, check the last modified time of the resource. If it's newer than what we have cached, bail. */
     hUrl = InternetOpenUrlA(hInternet, req->url, NULL, 0,
         INTERNET_FLAG_RELOAD | INTERNET_FLAG_NO_CACHE_WRITE, (DWORD_PTR)NULL);
-    lenlen = sizeof(modifiedTimeSys);
-    if (hUrl != NULL
-        && HttpQueryInfoA(hUrl, HTTP_QUERY_FLAG_SYSTEMTIME | HTTP_QUERY_LAST_MODIFIED, &modifiedTimeSys, &lenlen, 0)
-        && SystemTimeToFileTime(&modifiedTimeSys, &modifiedTimeFile)
-        && CompareFileTime(&modifiedTimeFile, &cacheData->LastModifiedTime) == 1) {
-        goto cleanup;
+
+    /* If we have internet, check the validity of the cached file. */
+    if (hUrl != NULL) {
+        /* If the remote file is newer than what we have cached, bail. */
+        lenlen = sizeof(modifiedTimeSys);
+        if (HttpQueryInfoA(hUrl, HTTP_QUERY_FLAG_SYSTEMTIME | HTTP_QUERY_LAST_MODIFIED, &modifiedTimeSys, &lenlen, 0)
+            && SystemTimeToFileTime(&modifiedTimeSys, &modifiedTimeFile)
+            && CompareFileTime(&modifiedTimeFile, &cacheData->LastModifiedTime) == 1) {
+            goto cleanup;
+        }
     }
 
     hFile = CreateFileA(cacheData->lpszLocalFileName, GENERIC_READ, FILE_SHARE_READ, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
@@ -267,14 +276,36 @@ retry:
         goto cleanup;
     }
 
+    /* Compare actual file size on disk against Content-Length to catch truncation. */
+    if (hUrl != NULL) {
+        DWORD fileSize = GetFileSize(hFile, NULL);
+        lenlen = sizeof(contentLength);
+        if (fileSize != INVALID_FILE_SIZE
+            && HttpQueryInfoA(hUrl, HTTP_QUERY_FLAG_NUMBER | HTTP_QUERY_CONTENT_LENGTH, &contentLength, &lenlen, 0)
+            && fileSize != contentLength) {
+            logmsg("Cache file size mismatch for %s: on disk %d, expected %d\n",
+                req->url, fileSize, contentLength);
+            CloseHandle(hFile);
+            deleteCache = true;
+            goto cleanup;
+        }
+    }
+
     req->handles.hFile = hFile;
     req->source = REQ_SRC_CACHE;
     req->sizeHint = cacheData->dwSizeLow;
     success = true;
 
+    logmsg("Initialized from cache: %s\n", req->url);
+    logmsg("  Cache file: %s\n", cacheData->lpszLocalFileName);
+
 cleanup:
     if (!success) {
         UnlockUrlCacheEntryFileA(req->url, 0);
+        if (deleteCache) {
+            DeleteUrlCacheEntryA(req->url);
+            logmsg("Deleted cache entry for %s\n", req->url);
+        }
     }
     if (hUrl != NULL) {
         InternetCloseHandle(hUrl);
