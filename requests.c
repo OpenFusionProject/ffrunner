@@ -223,22 +223,25 @@ fail:
 }
 
 bool
-try_init_from_cache(Request *req)
+try_init_from_cache(Request *req, char *hostname, char *filePath, INTERNET_SCHEME scheme, INTERNET_PORT port)
 {
     DWORD lenlen;
     DWORD err;
     HANDLE hFile;
     INTERNET_CACHE_ENTRY_INFOA *cacheData;
-    HINTERNET hUrl;
+    HINTERNET hConn;
+    HINTERNET hReq;
     SYSTEMTIME modifiedTimeSys;
     FILETIME modifiedTimeFile;
     DWORD contentLength;
+    DWORD flags;
     bool success;
     bool deleteCache;
 
     success = false;
     deleteCache = false;
-    hUrl = NULL;
+    hConn = NULL;
+    hReq = NULL;
     lenlen = sizeof(INTERNET_CACHE_ENTRY_INFOA) + MAX_URL_LENGTH + MAX_PATH;
     cacheData = malloc(lenlen);
 
@@ -257,14 +260,21 @@ retry:
         goto cleanup;
     }
 
-    hUrl = InternetOpenUrlA(hInternet, req->url, NULL, 0,
-        INTERNET_FLAG_RELOAD | INTERNET_FLAG_NO_CACHE_WRITE, (DWORD_PTR)NULL);
-
-    /* If we have internet, check the validity of the cached file. */
-    if (hUrl != NULL) {
-        /* If the remote file is newer than what we have cached, bail. */
+    /* Send a HEAD request to validate the cached entry without downloading. */
+    if (hInternet != NULL) {
+        hConn = InternetConnectA(hInternet, hostname, port, NULL, NULL, INTERNET_SERVICE_HTTP, 0, 0);
+    }
+    if (hConn != NULL) {
+        flags = INTERNET_FLAG_RELOAD | INTERNET_FLAG_NO_CACHE_WRITE;
+        if (scheme == INTERNET_SCHEME_HTTPS) {
+            flags |= INTERNET_FLAG_SECURE;
+        }
+        hReq = HttpOpenRequestA(hConn, "HEAD", filePath, NULL, NULL, NULL, flags, 0);
+    }
+    if (hReq != NULL && HttpSendRequestA(hReq, NULL, 0, NULL, 0)) {
+        /* If the remote file is newer than what we have cached, invalidate. */
         lenlen = sizeof(modifiedTimeSys);
-        if (HttpQueryInfoA(hUrl, HTTP_QUERY_FLAG_SYSTEMTIME | HTTP_QUERY_LAST_MODIFIED, &modifiedTimeSys, &lenlen, 0)
+        if (HttpQueryInfoA(hReq, HTTP_QUERY_FLAG_SYSTEMTIME | HTTP_QUERY_LAST_MODIFIED, &modifiedTimeSys, &lenlen, 0)
             && SystemTimeToFileTime(&modifiedTimeSys, &modifiedTimeFile)
             && CompareFileTime(&modifiedTimeFile, &cacheData->LastModifiedTime) == 1) {
             goto cleanup;
@@ -277,13 +287,13 @@ retry:
     }
 
     /* Compare actual file size on disk against Content-Length to catch truncation. */
-    if (hUrl != NULL) {
+    if (hReq != NULL) {
         DWORD fileSize = GetFileSize(hFile, NULL);
         lenlen = sizeof(contentLength);
         if (fileSize != INVALID_FILE_SIZE
-            && HttpQueryInfoA(hUrl, HTTP_QUERY_FLAG_NUMBER | HTTP_QUERY_CONTENT_LENGTH, &contentLength, &lenlen, 0)
+            && HttpQueryInfoA(hReq, HTTP_QUERY_FLAG_NUMBER | HTTP_QUERY_CONTENT_LENGTH, &contentLength, &lenlen, 0)
             && fileSize != contentLength) {
-            logmsg("Cache file size mismatch for %s: on disk %d, expected %d\n",
+            logmsg("Cache file truncated for %s: on disk %d, expected %d\n",
                 req->url, fileSize, contentLength);
             CloseHandle(hFile);
             deleteCache = true;
@@ -300,15 +310,18 @@ retry:
     logmsg("  Cache file: %s\n", cacheData->lpszLocalFileName);
 
 cleanup:
+    if (hReq != NULL) {
+        InternetCloseHandle(hReq);
+    }
+    if (hConn != NULL) {
+        InternetCloseHandle(hConn);
+    }
     if (!success) {
         UnlockUrlCacheEntryFileA(req->url, 0);
         if (deleteCache) {
             DeleteUrlCacheEntryA(req->url);
             logmsg("Deleted cache entry for %s\n", req->url);
         }
-    }
-    if (hUrl != NULL) {
-        InternetCloseHandle(hUrl);
     }
     free(cacheData);
     return success;
@@ -337,7 +350,7 @@ init_request_http(Request *req, char *hostname, char *filePath, INTERNET_SCHEME 
          * transparently reading from the cache, so we attempt to
          * explicitly read from it before falling back to HTTP.
          */
-        if (try_init_from_cache(req)) {
+        if (try_init_from_cache(req, hostname, filePath, scheme, port)) {
             return;
         }
     }
