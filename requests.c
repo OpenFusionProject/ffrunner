@@ -570,9 +570,11 @@ VOID CALLBACK
 handle_request(PTP_CALLBACK_INSTANCE inst, void *reqArg, PTP_WORK work)
 {
     Request *req;
+    HANDLE doneEvent;
     bool done;
 
     req = (Request *)reqArg;
+    doneEvent = req->doneEvent;
     done = false;
     while (!done) {
         if (req->source == REQ_SRC_UNSET) {
@@ -602,8 +604,8 @@ handle_request(PTP_CALLBACK_INSTANCE inst, void *reqArg, PTP_WORK work)
         }
     }
 
-    if (req->doneEvent != INVALID_HANDLE_VALUE) {
-        SetEvent(req->doneEvent);
+    if (doneEvent != INVALID_HANDLE_VALUE) {
+        SetEvent(doneEvent);
     }
 }
 
