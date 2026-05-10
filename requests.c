@@ -117,7 +117,7 @@ handle_io_progress(Request *req)
 {
     NPError err;
     size_t bytesAvailable;
-    uint32_t writeSize;
+    int32_t writeSize;
     int32_t bytesConsumed;
     uint8_t *dataPtr;
 
@@ -143,20 +143,21 @@ handle_io_progress(Request *req)
         /* streaming in progress AND data available */
         dbglogmsg("> NPP_WriteReady %s %d\n", req->originalUrl, bytesAvailable);
         writeSize = pluginFuncs.writeready(&npp, req->stream);
-        writeSize = MIN(writeSize, bytesAvailable);
-
-        dbglogmsg("> NPP_Write %s %d\n", req->originalUrl, writeSize);
-        dataPtr = req->buf + req->writePtr;
-        bytesConsumed = pluginFuncs.write(&npp, req->stream, req->bytesWritten, writeSize, dataPtr);
-        if (bytesConsumed < 0) {
-            logmsg("write error %d\n", bytesConsumed);
-            cancel_request(req);
-        } else if ((uint32_t)bytesConsumed < writeSize) {
-            logmsg("not enough bytes consumed %d < %d\n", bytesConsumed, writeSize);
-            cancel_request(req);
-        } else {
-            req->bytesWritten += bytesConsumed;
-            req->writePtr += bytesConsumed;
+        if (writeSize > 0) {
+            writeSize = MIN(writeSize, bytesAvailable);
+            dbglogmsg("> NPP_Write %s %d\n", req->originalUrl, writeSize);
+            dataPtr = req->buf + req->writePtr;
+            bytesConsumed = pluginFuncs.write(&npp, req->stream, req->bytesWritten, writeSize, dataPtr);
+            if (bytesConsumed < 0) {
+                logmsg("write error %d\n", bytesConsumed);
+                cancel_request(req);
+            } else if ((uint32_t)bytesConsumed < writeSize) {
+                logmsg("not enough bytes consumed %d < %d\n", bytesConsumed, writeSize);
+                cancel_request(req);
+            } else {
+                req->bytesWritten += bytesConsumed;
+                req->writePtr += bytesConsumed;
+            }
         }
     }
 
