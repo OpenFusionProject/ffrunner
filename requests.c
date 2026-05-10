@@ -117,11 +117,12 @@ handle_io_progress(Request *req)
 {
     NPError err;
     size_t bytesAvailable;
-    int32_t writeSize;
+    int32_t bytesReady;
     int32_t bytesConsumed;
     uint8_t *dataPtr;
 
     assert(req->source != REQ_SRC_UNSET);
+    assert(req->writePtr <= req->writeSize);
 
     if (req->stream == NULL && !req->failed) {
         /* start streaming */
@@ -138,31 +139,40 @@ handle_io_progress(Request *req)
         }
     }
 
+    /*
+     * Batch as many writes as the plugin will accept in a single trip,
+     * to avoid worker/main round-trips per NPP_Write call.
+     */
     bytesAvailable = req->writeSize - req->writePtr;
-    if (req->stream && bytesAvailable > 0) {
-        /* streaming in progress AND data available */
+    while (req->stream && !req->failed && bytesAvailable > 0) {
         dbglogmsg("> NPP_WriteReady %s %d\n", req->originalUrl, bytesAvailable);
-        writeSize = pluginFuncs.writeready(&npp, req->stream);
-        if (writeSize > 0) {
-            writeSize = MIN(writeSize, bytesAvailable);
-            dbglogmsg("> NPP_Write %s %d\n", req->originalUrl, writeSize);
-            dataPtr = req->buf + req->writePtr;
-            bytesConsumed = pluginFuncs.write(&npp, req->stream, req->bytesWritten, writeSize, dataPtr);
-            if (bytesConsumed < 0) {
-                logmsg("write error %d\n", bytesConsumed);
-                cancel_request(req);
-            } else if ((uint32_t)bytesConsumed < writeSize) {
-                logmsg("not enough bytes consumed %d < %d\n", bytesConsumed, writeSize);
-                cancel_request(req);
-            } else {
-                req->bytesWritten += bytesConsumed;
-                req->writePtr += bytesConsumed;
-            }
+        bytesReady = pluginFuncs.writeready(&npp, req->stream);
+        if (bytesReady <= 0) {
+            /* plugin says it's not ready; back off until next call */
+            break;
         }
+        bytesReady = MIN(bytesReady, bytesAvailable);
+        dbglogmsg("> NPP_Write %s %d\n", req->originalUrl, bytesReady);
+        dataPtr = req->buf + req->writePtr;
+        bytesConsumed = pluginFuncs.write(&npp, req->stream, req->bytesWritten, bytesReady, dataPtr);
+        if (bytesConsumed < 0) {
+            logmsg("write error %d\n", bytesConsumed);
+            cancel_request(req);
+            break;
+        } else if ((uint32_t)bytesConsumed < bytesReady) {
+            /* plugin promised it would consume offerSize via writeready */
+            logmsg("not enough bytes consumed %d < %d\n", bytesConsumed, bytesReady);
+            cancel_request(req);
+            break;
+        }
+        req->bytesWritten += bytesConsumed;
+        req->writePtr += bytesConsumed;
+        bytesAvailable -= bytesConsumed;
     }
 
-    if (req->failed || (req->done && bytesAvailable == 0)) {
-        /* request is cancelled or complete */
+    if (req->done || req->failed) {
+        assert(req->failed || bytesAvailable == 0);
+
         if (req->stream) {
             logmsg("> NPP_DestroyStream %s %d\n", req->originalUrl, req->doneReason);
             err = pluginFuncs.destroystream(&npp, req->stream, req->doneReason);
@@ -507,6 +517,7 @@ void
 progress_request(Request *req)
 {
     assert(req->source != REQ_SRC_UNSET);
+    assert(req->writePtr <= req->writeSize);
 
     if (req->writePtr != req->writeSize) {
         /* waiting for plugin to consume bytes */
@@ -603,6 +614,8 @@ handle_request(PTP_CALLBACK_INSTANCE inst, void *reqArg, PTP_WORK work)
     }
     CloseHandle(req->readyEvent);
     free(req);
+
+    CloseThreadpoolWork(work);
 }
 
 static void
