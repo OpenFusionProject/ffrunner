@@ -571,10 +571,12 @@ handle_request(PTP_CALLBACK_INSTANCE inst, void *reqArg, PTP_WORK work)
 {
     Request *req;
     HANDLE doneEvent;
+    HANDLE readyEvent;
     bool done;
 
     req = (Request *)reqArg;
     doneEvent = req->doneEvent;
+    readyEvent = req->readyEvent;
     done = false;
     while (!done) {
         if (req->source == REQ_SRC_UNSET) {
@@ -600,7 +602,7 @@ handle_request(PTP_CALLBACK_INSTANCE inst, void *reqArg, PTP_WORK work)
         } else {
             /* notify main thread to pipe progress to the plugin */
             PostMessageW(hwnd, ioMsg, (WPARAM)NULL, (LPARAM)req);
-            WaitForSingleObject(req->readyEvent, INFINITE);
+            WaitForSingleObject(readyEvent, INFINITE);
         }
     }
 
