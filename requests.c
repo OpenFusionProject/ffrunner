@@ -112,7 +112,7 @@ cancel_request(Request *req)
     req->failed = true;
 }
 
-bool
+void
 handle_io_progress(Request *req)
 {
     NPError err;
@@ -169,6 +169,7 @@ handle_io_progress(Request *req)
                 logmsg("destroystream error %d\n", err);
             }
             free(req->stream);
+            req->stream = NULL;
         }
 
         if (req->doNotify) {
@@ -176,29 +177,8 @@ handle_io_progress(Request *req)
             pluginFuncs.urlnotify(&npp, req->originalUrl, req->doneReason, req->notifyData);
         }
 
-        if ((req->source == REQ_SRC_FILE || req->source == REQ_SRC_CACHE) && req->handles.hFile != INVALID_HANDLE_VALUE) {
-            CloseHandle(req->handles.hFile);
-        }
-
-        if (req->source == REQ_SRC_CACHE) {
-            UnlockUrlCacheEntryFileA(req->originalUrl, 0);
-        }
-
-        if (req->source == REQ_SRC_HTTP) {
-            if (req->handles.http.hReq != NULL) {
-                InternetCloseHandle(req->handles.http.hReq);
-            }
-            if (req->handles.http.hConn != NULL) {
-                InternetCloseHandle(req->handles.http.hConn);
-            }
-        }
-
         complete_request();
-
-        return true;
     }
-
-    return false;
 }
 
 void
@@ -570,27 +550,15 @@ VOID CALLBACK
 handle_request(PTP_CALLBACK_INSTANCE inst, void *reqArg, PTP_WORK work)
 {
     Request *req;
-    HANDLE doneEvent;
-    HANDLE readyEvent;
-    bool done;
 
     req = (Request *)reqArg;
-    doneEvent = req->doneEvent;
-    readyEvent = req->readyEvent;
-    done = false;
-    while (!done) {
+    while (true) {
         if (req->source == REQ_SRC_UNSET) {
             init_request(req);
         }
         if (!req->failed) {
             progress_request(req);
         }
-
-        /*
-         * Capture done state before posting to the main thread,
-         * since the main thread may free req after processing.
-         */
-        done = req->done || req->failed;
 
         if (req->hOutFile != INVALID_HANDLE_VALUE) {
             /* write directly to output file */
@@ -600,18 +568,40 @@ handle_request(PTP_CALLBACK_INSTANCE inst, void *reqArg, PTP_WORK work)
             }
             req->writePtr = req->writeSize;
         } else {
-            /* notify main thread to pipe progress to the plugin */
+            /* main thread has to pipe progress to the plugin */
             PostMessageW(hwnd, ioMsg, (WPARAM)NULL, (LPARAM)req);
-            WaitForSingleObject(readyEvent, INFINITE);
+            WaitForSingleObject(req->readyEvent, INFINITE);
+        }
+
+        if (req->done || req->failed) {
+            break;
         }
     }
 
-    /* Close handles here, because req has been freed at this point */
-    if (doneEvent != INVALID_HANDLE_VALUE) {
-        SetEvent(doneEvent);
-        CloseHandle(doneEvent);
+    /* cleanup I/O handles */
+    if ((req->source == REQ_SRC_FILE || req->source == REQ_SRC_CACHE)
+        && req->handles.hFile != INVALID_HANDLE_VALUE) {
+        CloseHandle(req->handles.hFile);
     }
-    CloseHandle(readyEvent);
+    if (req->source == REQ_SRC_CACHE) {
+        UnlockUrlCacheEntryFileA(req->originalUrl, 0);
+    }
+    if (req->source == REQ_SRC_HTTP) {
+        if (req->handles.http.hReq != NULL) {
+            InternetCloseHandle(req->handles.http.hReq);
+        }
+        if (req->handles.http.hConn != NULL) {
+            InternetCloseHandle(req->handles.http.hConn);
+        }
+    }
+
+    /* cleanup signals */
+    if (req->doneEvent != INVALID_HANDLE_VALUE) {
+        SetEvent(req->doneEvent);
+        CloseHandle(req->doneEvent);
+    }
+    CloseHandle(req->readyEvent);
+    free(req);
 }
 
 static void

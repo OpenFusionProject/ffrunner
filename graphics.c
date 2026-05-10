@@ -10,7 +10,6 @@ window_proc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
     PAINTSTRUCT ps;
     HDC hdc;
     Request *req;
-    bool done;
 
     switch (uMsg) {
     case WM_CLOSE:
@@ -61,11 +60,8 @@ window_proc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 
     if (uMsg == ioMsg) {
         req = (Request*)lParam;
-        done = handle_io_progress(req);
+        handle_io_progress(req);
         SetEvent(req->readyEvent);
-        if (done) {
-            free(req);
-        }
         return 0;
     }
 

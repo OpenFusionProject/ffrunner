@@ -126,7 +126,7 @@ extern UINT ioMsg;
 void register_get_request(const char *url, bool doNotify, void *notifyData);
 void register_post_request(const char *url, bool doNotify, void *notifyData, uint32_t postDataLen, const char *postData);
 void register_temp_request(const char *url, HANDLE outFile, HANDLE onDone);
-bool handle_io_progress(Request *req);
+void handle_io_progress(Request *req);
 void submit_request(Request *req);
 void complete_request();
 void init_network(char *mainSrcUrl);
