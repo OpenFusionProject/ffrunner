@@ -622,6 +622,7 @@ fetch_icon(char *iconUrl, char *outPath)
 {
     HANDLE iconFile;
     HANDLE doneSignal;
+    HANDLE workerSignal;
     DWORD waitResult;
 
     iconFile = gen_temp_file(outPath);
@@ -632,7 +633,18 @@ fetch_icon(char *iconUrl, char *outPath)
 
     logmsg("Downloading icon to %s\n", outPath);
     doneSignal = CreateEventA(NULL, TRUE, FALSE, NULL);
-    register_temp_request(iconUrl, iconFile, doneSignal);
+
+    /*
+     * Duplicate the handle so the worker has independent ownership.
+     * If we time out and close our handle, the worker can still safely
+     * SetEvent on its own copy without races.
+     */
+
+    DuplicateHandle(GetCurrentProcess(), doneSignal,
+                         GetCurrentProcess(), &workerSignal,
+                         0, FALSE, DUPLICATE_SAME_ACCESS);
+
+    register_temp_request(iconUrl, iconFile, workerSignal);
 
     /* 3-second timeout for icon download so we don't hang if something goes wrong */
     waitResult = WaitForSingleObject(doneSignal, 3000);

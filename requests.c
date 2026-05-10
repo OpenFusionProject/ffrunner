@@ -606,9 +606,12 @@ handle_request(PTP_CALLBACK_INSTANCE inst, void *reqArg, PTP_WORK work)
         }
     }
 
+    /* Close handles here, because req has been freed at this point */
     if (doneEvent != INVALID_HANDLE_VALUE) {
         SetEvent(doneEvent);
+        CloseHandle(doneEvent);
     }
+    CloseHandle(readyEvent);
 }
 
 static void
