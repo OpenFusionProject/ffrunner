@@ -123,6 +123,7 @@ extern HWND hwnd;
 extern PTP_POOL threadpool;
 extern UINT ioMsg;
 
+char *get_post_payload(const char *buf);
 void register_get_request(const char *url, bool doNotify, void *notifyData);
 void register_post_request(const char *url, bool doNotify, void *notifyData, uint32_t postDataLen, const char *postData);
 void register_temp_request(const char *url, HANDLE outFile, HANDLE onDone);

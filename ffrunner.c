@@ -1,5 +1,6 @@
 #include "ffrunner.h"
 #include "arg.h"
+#include "npapi/npruntime.h"
 
 NPP_t npp;
 NPPluginFuncs pluginFuncs;
@@ -17,6 +18,8 @@ Arguments args = { 0 };
 #define NPSTRINGMAXSIZE 128
 
 char npidentifiers[NPIDENTIFIERCOUNT][NPSTRINGMAXSIZE];
+
+bool didAuth = false;
 
 NPIdentifier
 getNPIdentifier(const char *s)
@@ -43,6 +46,94 @@ getNPIdentifier(const char *s)
     assert(npidentifiers[i][0] == '\0');
     strncpy(npidentifiers[i], s, NPSTRINGMAXSIZE);
     return &npidentifiers[i];
+}
+
+void
+unity_send_message(const char *class, const char *msg, NPVariant val)
+{
+    NPVariant args[3];
+    NPVariant ret;
+
+    assert(scriptableObject->_class);
+    assert(scriptableObject->_class->hasMethod(scriptableObject, getNPIdentifier("SendMessage")));
+
+    STRINGZ_TO_NPVARIANT(class, args[0]);
+    STRINGZ_TO_NPVARIANT(msg, args[1]);
+    args[2] = val;
+    scriptableObject->_class->invoke(scriptableObject, getNPIdentifier("SendMessage"), args, ARRLEN(args), &ret);
+}
+
+void
+setupAuth(char *username, char *password)
+{
+    NPVariant val;
+    logmsg("Setting up auto-auth as %s\n", username);
+
+    STRINGZ_TO_NPVARIANT(username, val);
+    unity_send_message("GlobalManager", "SetTEGid", val);
+    unity_send_message("AssetLoader", "startDownloadTracking", val);
+
+    STRINGZ_TO_NPVARIANT(password, val);
+    unity_send_message("GlobalManager", "SetAuthid", val);
+}
+
+void
+doAuth()
+{
+    NPVariant val;
+    logmsg("Logging in\n");
+
+    INT32_TO_NPVARIANT(0, val);
+    unity_send_message("GlobalManager", "DoAuth", val);
+
+    didAuth = true;
+}
+
+#define BUNDLE_STAGE_PARAM "dlStep="
+#define BUNDLE_FILE_NAME_PARAM "fileName="
+
+int
+handle_bundle_complete(const char *buf, size_t len)
+{
+    int stage = 0;
+    char *payload;
+    char *copy;
+    char *dlStep;
+    char *fileName;
+
+    payload = get_post_payload(buf);
+    len -= (payload - buf);
+
+    /* copy into owned, NUL-terminated memory */
+    copy = malloc(len + 1);
+    memcpy(copy, payload, len);
+    copy[len] = '\0';
+
+    /* extract dlStep param */
+    dlStep = strstr(copy, BUNDLE_STAGE_PARAM);
+    if (dlStep == NULL) {
+        goto malformed;
+    }
+
+    dlStep += sizeof(BUNDLE_STAGE_PARAM) - 1;
+    stage = atoi(dlStep); /* 0 on error, fine */
+
+    /* extract fileName param */
+    fileName = strstr(copy, BUNDLE_FILE_NAME_PARAM);
+    if (fileName == NULL) {
+        goto malformed;
+    }
+
+    fileName += sizeof(BUNDLE_FILE_NAME_PARAM) - 1;
+    dbglogmsg("Game finished downloading %s (stage %d)\n", fileName, stage);
+
+cleanup:
+    free(copy);
+    return stage;
+
+malformed:
+    logmsg("Malformed bundle complete payload: %.*s\n", (int)len, payload);
+    goto cleanup;
 }
 
 NPError
@@ -76,11 +167,20 @@ NPN_PostURLProc(NPP instance, const char* url, const char* window, uint32_t len,
     return NPERR_NO_ERROR;
 }
 
+#define ASSET_PROGRESS_URL "http://www.fusionfall.com/tools/scripts/track_relay.php"
+
 NPError
 NPN_PostURLNotifyProc(NPP instance, const char* url, const char* window, uint32_t len, const char* buf, NPBool file, void* notifyData)
 {
     dbglogmsg("< NPN_PostURLNotifyProc:%p, url: %s, window: %s, len: %d, buf: %s, file: %d, notifyData: %p\n",
             instance, url, window, len, buf, file, notifyData);
+
+    if (strncmp(url, ASSET_PROGRESS_URL, sizeof(ASSET_PROGRESS_URL) - 1) == 0) {
+        if (handle_bundle_complete(buf, len) > 0 && !didAuth) {
+            doAuth();
+        }
+        return NPERR_NO_DATA;
+    }
 
     register_post_request(url, true, notifyData, len, buf);
 
@@ -218,37 +318,6 @@ get_navigation_target(const char *script)
     return found + sizeof(NAVIGATE_SCRIPT) - 1;
 }
 
-void
-unity_send_message(const char *class, const char *msg, NPVariant val)
-{
-    NPVariant args[3];
-    NPVariant ret;
-
-    assert(scriptableObject->_class);
-    assert(scriptableObject->_class->hasMethod(scriptableObject, getNPIdentifier("SendMessage")));
-
-    STRINGZ_TO_NPVARIANT(class, args[0]);
-    STRINGZ_TO_NPVARIANT(msg, args[1]);
-    args[2] = val;
-    scriptableObject->_class->invoke(scriptableObject, getNPIdentifier("SendMessage"), args, ARRLEN(args), &ret);
-}
-
-void
-auth(char *username, char *password)
-{
-    NPVariant val;
-    logmsg("Auto-auth as %s\n", username);
-
-    STRINGZ_TO_NPVARIANT(username, val);
-    unity_send_message("GlobalManager", "SetTEGid", val);
-
-    STRINGZ_TO_NPVARIANT(password, val);
-    unity_send_message("GlobalManager", "SetAuthid", val);
-
-    INT32_TO_NPVARIANT(0, val);
-    unity_send_message("GlobalManager", "DoAuth", val);
-}
-
 bool
 NPN_EvaluateProc(NPP npp, NPObject *obj, NPString *script, NPVariant *result)
 {
@@ -264,7 +333,7 @@ NPN_EvaluateProc(NPP npp, NPObject *obj, NPString *script, NPVariant *result)
     } else if (strncmp(script->UTF8Characters, AUTH_CALLBACK_SCRIPT, sizeof(AUTH_CALLBACK_SCRIPT)) == 0) {
         /* Execute authentication callback */
         if (args.tegId != NULL && args.authId != NULL) {
-            auth(args.tegId, args.authId);
+            setupAuth(args.tegId, args.authId);
         }
     } else {
         /* If navigation, handle */
