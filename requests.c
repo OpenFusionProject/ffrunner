@@ -131,9 +131,9 @@ handle_io_progress(Request *req)
         req->stream->url = req->originalUrl;
         req->stream->end = req->sizeHint;
         req->stream->notifyData = req->notifyData;
-        logmsg("> NPP_NewStream %s\n", req->originalUrl);
+        dbglogmsg("> NPP_NewStream %s\n", req->originalUrl);
         err = pluginFuncs.newstream(&npp, req->mimeType, req->stream, false, &req->streamType);
-        logmsg("returned %d\n", err);
+        dbglogmsg("  returned %d\n", err);
         if (err != NPERR_NO_ERROR) {
             cancel_request(req);
         }
@@ -174,7 +174,7 @@ handle_io_progress(Request *req)
         assert(req->failed || bytesAvailable == 0);
 
         if (req->stream) {
-            logmsg("> NPP_DestroyStream %s %d\n", req->originalUrl, req->doneReason);
+            dbglogmsg("> NPP_DestroyStream %s %d\n", req->originalUrl, req->doneReason);
             err = pluginFuncs.destroystream(&npp, req->stream, req->doneReason);
             if (err != NPERR_NO_ERROR) {
                 logmsg("destroystream error %d\n", err);
@@ -184,7 +184,7 @@ handle_io_progress(Request *req)
         }
 
         if (req->doNotify) {
-            logmsg("> NPP_UrlNotify %s %d %p\n", req->originalUrl, req->doneReason, req->notifyData);
+            dbglogmsg("> NPP_UrlNotify %s %d %p\n", req->originalUrl, req->doneReason, req->notifyData);
             pluginFuncs.urlnotify(&npp, req->originalUrl, req->doneReason, req->notifyData);
         }
 

@@ -48,7 +48,7 @@ getNPIdentifier(const char *s)
 NPError
 NPN_GetURLProc(NPP instance, const char* url, const char* window)
 {
-    logmsg("< NPN_GetURLProc:%p, url: %s, window: %s\n", instance, url, window);
+    dbglogmsg("< NPN_GetURLProc:%p, url: %s, window: %s\n", instance, url, window);
 
     register_get_request(url, false, NULL);
 
@@ -58,7 +58,7 @@ NPN_GetURLProc(NPP instance, const char* url, const char* window)
 NPError
 NPN_GetURLNotifyProc(NPP instance, const char* url, const char* window, void* notifyData)
 {
-    logmsg("< NPN_GetURLNotifyProc:%p, url: %s, window: %s, notifyData: %p\n", instance, url, window, notifyData);
+    dbglogmsg("< NPN_GetURLNotifyProc:%p, url: %s, window: %s, notifyData: %p\n", instance, url, window, notifyData);
 
     register_get_request(url, true, notifyData);
 
@@ -68,7 +68,7 @@ NPN_GetURLNotifyProc(NPP instance, const char* url, const char* window, void* no
 NPError
 NPN_PostURLProc(NPP instance, const char* url, const char* window, uint32_t len, const char* buf, NPBool file)
 {
-    logmsg("< NPN_PostURLProc:%p, url: %s, window: %s, len: %d, buf: %s, file: %d\n",
+    dbglogmsg("< NPN_PostURLProc:%p, url: %s, window: %s, len: %d, buf: %s, file: %d\n",
             instance, url, window, len, buf, file);
 
     register_post_request(url, false, NULL, len, buf);
@@ -79,7 +79,7 @@ NPN_PostURLProc(NPP instance, const char* url, const char* window, uint32_t len,
 NPError
 NPN_PostURLNotifyProc(NPP instance, const char* url, const char* window, uint32_t len, const char* buf, NPBool file, void* notifyData)
 {
-    logmsg("< NPN_PostURLNotifyProc:%p, url: %s, window: %s, len: %d, buf: %s, file: %d, notifyData: %p\n",
+    dbglogmsg("< NPN_PostURLNotifyProc:%p, url: %s, window: %s, len: %d, buf: %s, file: %d, notifyData: %p\n",
             instance, url, window, len, buf, file, notifyData);
 
     register_post_request(url, true, notifyData, len, buf);
@@ -90,28 +90,28 @@ NPN_PostURLNotifyProc(NPP instance, const char* url, const char* window, uint32_
 const char *
 NPN_UserAgentProc(NPP instance)
 {
-    logmsg("< NPN_UserAgentProc, NPP:%p\n", instance);
+    dbglogmsg("< NPN_UserAgentProc, NPP:%p\n", instance);
     return USERAGENT;
 }
 
 bool
 NPN_GetPropertyProc(NPP npp, NPObject *obj, NPIdentifier propertyName, NPVariant *result)
 {
-    logmsg("< NPN_GetPropertyProc\n");
+    dbglogmsg("< NPN_GetPropertyProc\n");
     return false;
 }
 
 bool
 NPN_InvokeProc(NPP npp, NPObject* obj, NPIdentifier methodName, const NPVariant *args, uint32_t argCount, NPVariant *result)
 {
-    logmsg("< NPN_InvokeProc:%p, obj: %p, methodName: %p, argCount:%d\n", npp, obj, methodName, argCount);
+    dbglogmsg("< NPN_InvokeProc:%p, obj: %p, methodName: %p, argCount:%d\n", npp, obj, methodName, argCount);
     return false;
 }
 
 void
 NPN_ReleaseVariantValueProc(NPVariant *variant)
 {
-    logmsg("< NPN_ReleaseVariantValueProc\n");
+    dbglogmsg("< NPN_ReleaseVariantValueProc\n");
 }
 
 NPObject *
@@ -119,7 +119,7 @@ NPN_CreateObjectProc(NPP npp, NPClass *aClass)
 {
     NPObject *npobj;
 
-    logmsg("< NPN_CreateObjectProc\n");
+    dbglogmsg("< NPN_CreateObjectProc\n");
     assert(aClass);
 
     if (aClass->allocate)
@@ -138,7 +138,7 @@ NPN_CreateObjectProc(NPP npp, NPClass *aClass)
 NPObject *
 NPN_RetainObjectProc(NPObject *obj)
 {
-    logmsg("< NPN_RetainObjectProc\n");
+    dbglogmsg("< NPN_RetainObjectProc\n");
     assert(obj);
     obj->referenceCount++;
     return obj;
@@ -147,7 +147,7 @@ NPN_RetainObjectProc(NPObject *obj)
 void
 NPN_ReleaseObjectProc(NPObject *obj)
 {
-    logmsg("< NPN_ReleaseObjectProc\n");
+    dbglogmsg("< NPN_ReleaseObjectProc\n");
     assert(obj);
 
     obj->referenceCount--;
@@ -168,7 +168,7 @@ NPN_GetValueProc(NPP instance, NPNVariable variable, void *ret_value)
 {
     NPObject **retPtr;
 
-    logmsg("< NPN_GetValueProc %d\n", variable);
+    dbglogmsg("< NPN_GetValueProc %d\n", variable);
 
     browserObject.referenceCount++;
 
@@ -254,7 +254,7 @@ NPN_EvaluateProc(NPP npp, NPObject *obj, NPString *script, NPVariant *result)
 {
     char *navigationTarget;
 
-    logmsg("< NPN_EvaluateProc %s\n", script->UTF8Characters);
+    dbglogmsg("< NPN_EvaluateProc %s\n", script->UTF8Characters);
 
     /* Evaluates JS calls, like MarkProgress(1), most of which doesn't need to do anything. */
     if (strncmp(script->UTF8Characters, HOMEPAGE_CALLBACK_SCRIPT, sizeof(HOMEPAGE_CALLBACK_SCRIPT)) == 0
@@ -284,7 +284,7 @@ NPN_EvaluateProc(NPP npp, NPObject *obj, NPString *script, NPVariant *result)
 NPIdentifier
 NPN_GetStringIdentifierProc(const NPUTF8* name)
 {
-    logmsg("< NPN_GetStringIdentifierProc %s\n", name);
+    dbglogmsg("< NPN_GetStringIdentifierProc %s\n", name);
 
     return getNPIdentifier(name);
 }
@@ -294,7 +294,7 @@ NPN_GetStringIdentifiersProc(const NPUTF8** names, int32_t nameCount, NPIdentifi
 {
     int i;
 
-    logmsg("< NPN_GetStringIdentifiersProc %d\n", nameCount);
+    dbglogmsg("< NPN_GetStringIdentifiersProc %d\n", nameCount);
 
     for (i = 0; i < nameCount; i++) {
         identifiers[i] = getNPIdentifier(names[i]);
@@ -310,7 +310,7 @@ NPAllocateFunction(NPP instance, NPClass *aClass)
 {
     NPObject *npobj;
 
-    logmsg("< NPAllocateFunction %p\n", aClass);
+    dbglogmsg("< NPAllocateFunction %p\n", aClass);
     assert(aClass);
 
     if (aClass->allocate)
@@ -329,7 +329,7 @@ NPAllocateFunction(NPP instance, NPClass *aClass)
 void
 NPDeallocateFunction(NPObject *npobj)
 {
-    logmsg("< NPDeallocateFunction %p\n", npobj);
+    dbglogmsg("< NPDeallocateFunction %p\n", npobj);
     assert(npobj != &browserObject);
 
     free(npobj);
@@ -338,13 +338,13 @@ NPDeallocateFunction(NPObject *npobj)
 void
 NPInvalidateFunction(NPObject *npobj)
 {
-    logmsg("< NPInvalidateFunction %p\n", npobj);
+    dbglogmsg("< NPInvalidateFunction %p\n", npobj);
 }
 
 bool
 NPHasMethodFunction(NPObject *npobj, NPIdentifier name)
 {
-    logmsg("< NPHasMethodFunction %p %p\n", npobj, name);
+    dbglogmsg("< NPHasMethodFunction %p %p\n", npobj, name);
 
     return 0;
 }
@@ -352,7 +352,7 @@ NPHasMethodFunction(NPObject *npobj, NPIdentifier name)
 bool
 NPInvokeFunction(NPObject *npobj, NPIdentifier name, const NPVariant *args, uint32_t argCount, NPVariant *result)
 {
-    logmsg("< NPInvokeFunction %p %p\n", npobj, name);
+    dbglogmsg("< NPInvokeFunction %p %p\n", npobj, name);
 
     return 0;
 }
@@ -360,7 +360,7 @@ NPInvokeFunction(NPObject *npobj, NPIdentifier name, const NPVariant *args, uint
 bool
 NPInvokeDefaultFunction(NPObject *npobj, const NPVariant *args, uint32_t argCount, NPVariant *result)
 {
-    logmsg("< NPInvokeDefaultFunction %p\n", npobj);
+    dbglogmsg("< NPInvokeDefaultFunction %p\n", npobj);
 
     return 0;
 }
@@ -368,7 +368,7 @@ NPInvokeDefaultFunction(NPObject *npobj, const NPVariant *args, uint32_t argCoun
 bool
 NPHasPropertyFunction(NPObject *npobj, NPIdentifier name)
 {
-    logmsg("< NPHasPropertyFunction %p\n", npobj);
+    dbglogmsg("< NPHasPropertyFunction %p\n", npobj);
 
     return 0;
 }
@@ -376,7 +376,7 @@ NPHasPropertyFunction(NPObject *npobj, NPIdentifier name)
 bool
 NPGetPropertyFunction(NPObject *npobj, NPIdentifier name, NPVariant *result)
 {
-    logmsg("< NPGetPropertyFunction %p\n", npobj);
+    dbglogmsg("< NPGetPropertyFunction %p\n", npobj);
 
     return 0;
 }
@@ -384,7 +384,7 @@ NPGetPropertyFunction(NPObject *npobj, NPIdentifier name, NPVariant *result)
 bool
 NPSetPropertyFunction(NPObject *npobj, NPIdentifier name, const NPVariant *value)
 {
-    logmsg("< NPSetPropertyFunction %p\n", npobj);
+    dbglogmsg("< NPSetPropertyFunction %p\n", npobj);
 
     return 0;
 }
@@ -392,7 +392,7 @@ NPSetPropertyFunction(NPObject *npobj, NPIdentifier name, const NPVariant *value
 bool
 NPRemovePropertyFunction(NPObject *npobj, NPIdentifier name)
 {
-    logmsg("< NPRemovePropertyFunction %p\n", npobj);
+    dbglogmsg("< NPRemovePropertyFunction %p\n", npobj);
 
     return 0;
 }
@@ -400,7 +400,7 @@ NPRemovePropertyFunction(NPObject *npobj, NPIdentifier name)
 bool
 NPEnumerationFunction(NPObject *npobj, NPIdentifier **value, uint32_t *count)
 {
-    logmsg("< NPEnumerationFunction %p\n", npobj);
+    dbglogmsg("< NPEnumerationFunction %p\n", npobj);
 
     return 0;
 }
@@ -408,7 +408,7 @@ NPEnumerationFunction(NPObject *npobj, NPIdentifier **value, uint32_t *count)
 bool
 NPConstructFunction(NPObject *npobj, const NPVariant *args, uint32_t argCount, NPVariant *result)
 {
-    logmsg("< NPConstructFunction %p\n", npobj);
+    dbglogmsg("< NPConstructFunction %p\n", npobj);
 
     return 0;
 }
@@ -749,13 +749,13 @@ main(int argc, char **argv)
     prepare_window(args.windowWidth, args.windowHeight, iconToUse);
     assert(hwnd);
 
-    logmsg("> NP_GetEntryPoints\n");
+    dbglogmsg("> NP_GetEntryPoints\n");
     ret = NP_GetEntryPoints(&pluginFuncs);
-    logmsg("returned %d\n", ret);
+    dbglogmsg("  returned %d\n", ret);
 
-    logmsg("> NP_Initialize\n");
+    dbglogmsg("> NP_Initialize\n");
     ret = NP_Initialize(&netscapeFuncs);
-    logmsg("returned %d\n", ret);
+    dbglogmsg("  returned %d\n", ret);
 
     char width[16], height[16];
     snprintf(width, sizeof(width), "%d", args.windowWidth);
@@ -789,9 +789,9 @@ main(int argc, char **argv)
 
     savedPtr = &saved;
 
-    logmsg("> NPP_NewProc\n");
+    dbglogmsg("> NPP_NewProc\n");
     ret = pluginFuncs.newp("application/vnd.ffuwp", &npp, 1, ARRLEN(argn), argn, argp, savedPtr);
-    logmsg("returned %d\n", ret);
+    dbglogmsg("  returned %d\n", ret);
 
     ShowWindow(hwnd, SW_SHOWDEFAULT);
     UpdateWindow(hwnd);
@@ -818,25 +818,25 @@ main(int argc, char **argv)
         npWin.height = winRect.bottom - winRect.top;
     }
 
-    logmsg("> NPP_SetWindowProc\n");
+    dbglogmsg("> NPP_SetWindowProc\n");
     ret = pluginFuncs.setwindow(&npp, &npWin);
-    logmsg("returned %d\n", ret);
+    dbglogmsg("  returned %d\n", ret);
 
 
-    logmsg("> NPP_GetValueProc\n");
+    dbglogmsg("> NPP_GetValueProc\n");
     ret = pluginFuncs.getvalue(&npp, NPPVpluginScriptableNPObject, &scriptableObject);
-    logmsg("returned %d and NPObject %p\n", ret, scriptableObject);
+    dbglogmsg("  returned %d and NPObject %p\n", ret, scriptableObject);
     assert(scriptableObject->_class);
 
-    logmsg("> scriptableObject.hasMethod style\n");
+    dbglogmsg("> scriptableObject.hasMethod style\n");
     ret = scriptableObject->_class->hasMethod(scriptableObject, getNPIdentifier("style"));
-    logmsg("returned %d\n", ret);
+    dbglogmsg("  returned %d\n", ret);
 
     message_loop();
 
-    logmsg("> NPP_DestroyProc\n");
+    dbglogmsg("> NPP_DestroyProc\n");
     ret = pluginFuncs.destroy(&npp, &savedPtr);
-    logmsg("returned %d\n", ret);
+    dbglogmsg("  returned %d\n", ret);
 
     return 0;
 }
