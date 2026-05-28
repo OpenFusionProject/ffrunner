@@ -665,13 +665,16 @@ fetch_icon(char *iconUrl, char *outPath)
 }
 
 void
-parent_console_redirect() {
+setup_console() {
     if (AttachConsole(ATTACH_PARENT_PROCESS)) {
         // reopen C stdio to the attached console
         FILE* f;
         freopen_s(&f, "CONIN$",  "r", stdin);
         freopen_s(&f, "CONOUT$", "w", stdout);
         freopen_s(&f, "CONOUT$", "w", stderr);
+
+        // disable output buffering
+        setvbuf(stdout, NULL, _IONBF, 0);
     }
 }
 
@@ -686,7 +689,7 @@ main(int argc, char **argv)
     RECT winRect;
     char iconFile[MAX_PATH];
 
-    parent_console_redirect();
+    setup_console();
     parse_args(argc, argv);
     print_args();
     init_logging(args.logPath, args.verboseLogging);
