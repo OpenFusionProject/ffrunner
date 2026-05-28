@@ -130,6 +130,28 @@ message_loop(void)
     while (GetMessage(&msg, NULL, 0, 0) > 0) {
         TranslateMessage(&msg);
         DispatchMessageW(&msg);
+
+        /*
+         * HACK: under Wine, mouse scroll messages are buffered until mouse movement (cause unknown).
+         * Posting a mouse movement message does not work as a workaround, and neither does sending
+         * a 0-pixel raw input (maybe optimized out by Wine).
+         * What DOES work is sending two net-zero mouse moves. There is not jitter and the
+         * scrolling is processed immediately. ¯\_(ツ)_/¯
+         */
+        if (msg.message == WM_MOUSEWHEEL || msg.message == WM_MOUSEHWHEEL) {
+            INPUT in[2] = {0};
+            /* one pixel move left */
+            in[0].type = INPUT_MOUSE;
+            in[0].mi.dx = 1;
+            in[0].mi.dy = 0;
+            in[0].mi.dwFlags = MOUSEEVENTF_MOVE;
+            //
+            in[1].type = INPUT_MOUSE;
+            in[1].mi.dx = -1;
+            in[1].mi.dy = 0;
+            in[1].mi.dwFlags = MOUSEEVENTF_MOVE;
+            SendInput(2, in, sizeof(INPUT));
+        }
     }
 }
 
