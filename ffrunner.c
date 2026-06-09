@@ -664,6 +664,27 @@ fetch_icon(char *iconUrl, char *outPath)
     return false;
 }
 
+static BOOL WINAPI
+console_ctrl_handler(DWORD ctrlType)
+{
+    switch (ctrlType) {
+    case CTRL_C_EVENT:
+    case CTRL_BREAK_EVENT:
+    case CTRL_CLOSE_EVENT:
+    case CTRL_LOGOFF_EVENT:
+    case CTRL_SHUTDOWN_EVENT:
+        logmsg("Console signal %d received, shutting down\n", ctrlType);
+        if (hwnd) {
+            PostMessageW(hwnd, WM_CLOSE, 0, 0);
+        }
+        // remove so next ctrl+c will force quit
+        SetConsoleCtrlHandler(console_ctrl_handler, FALSE);
+        return TRUE;
+    default:
+        return FALSE;
+    }
+}
+
 void
 setup_console() {
     if (AttachConsole(ATTACH_PARENT_PROCESS)) {
@@ -675,6 +696,8 @@ setup_console() {
 
         // disable output buffering
         setvbuf(stdout, NULL, _IONBF, 0);
+
+        SetConsoleCtrlHandler(console_ctrl_handler, TRUE);
     }
 }
 
