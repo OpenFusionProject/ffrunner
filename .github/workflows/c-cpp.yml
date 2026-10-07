@@ -13,7 +13,7 @@ jobs:
 
     steps:
     - name: apt install mingw
-      run: sudo apt update && sudo apt install -y gcc-mingw-w64-i686
+      run: sudo apt update && sudo apt install -y gcc-mingw-w64-i686 gcc-mingw-w64-x86-64
     - uses: actions/checkout@v4
     - name: make
       run: make
