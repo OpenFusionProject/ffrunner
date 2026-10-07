@@ -21,7 +21,11 @@
 #define USERAGENT "ffrunner"
 #define CLASS_NAME L"FFWINDOW"
 #define IO_MSG_NAME L"FFRunnerIoReady"
-#define REQUEST_BUFFER_SIZE 0x8000
+#define IO_MSG_PROGRESS 0
+#define IO_MSG_FINAL 1
+#define IO_MSG_RELEASE 2
+#define REQUEST_CHUNK_SIZE 0x40000
+#define REQUEST_MAX_QUEUED (32 * REQUEST_CHUNK_SIZE)
 #define POST_DATA_SIZE 0x1000
 #define MAX_URL_LENGTH 256
 #define DEFAULT_WIDTH 1280
@@ -52,7 +56,15 @@ enum {
 
 typedef uint8_t RequestSource;
 typedef struct Request Request;
+typedef struct RequestChunk RequestChunk;
 typedef struct Arguments Arguments;
+
+struct RequestChunk {
+    RequestChunk *next;
+    DWORD size;
+    DWORD consumed;
+    uint8_t data[REQUEST_CHUNK_SIZE];
+};
 
 struct Request {
     /* params */
@@ -66,19 +78,27 @@ struct Request {
 
     /* state */
     HANDLE readyEvent;
+    HANDLE spaceEvent;
     char *mimeType;
     RequestSource source;
     NPStream *stream;
     uint16_t streamType;
     DWORD sizeHint;
-    DWORD writeSize;
-    DWORD writePtr;
     DWORD bytesWritten;
-    uint8_t buf[REQUEST_BUFFER_SIZE];
-    bool done;
+    DWORD bytesRead;
+    CRITICAL_SECTION queueLock;
+    RequestChunk *queueHead;
+    RequestChunk *queueTail;
+    size_t queuedBytes;
+    bool finished;
     NPReason doneReason;
-    bool failed;
     HANDLE doneEvent;
+
+    /* Shared flags: use interlocked operations */
+    LONG msgPending;
+    LONG aborted;
+    LONG readerDone;
+    LONG failed;
 
     /* output (if set, write to file instead of plugin) */
     HANDLE hOutFile;
@@ -126,7 +146,8 @@ extern UINT ioMsg;
 void register_get_request(const char *url, bool doNotify, void *notifyData);
 void register_post_request(const char *url, bool doNotify, void *notifyData, uint32_t postDataLen, const char *postData);
 void register_temp_request(const char *url, HANDLE outFile, HANDLE onDone);
-void handle_io_progress(Request *req);
+bool handle_io_progress(Request *req, bool final);
+void release_request(Request *req);
 void submit_request(Request *req);
 void complete_request();
 void init_network(char *mainSrcUrl);

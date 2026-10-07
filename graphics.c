@@ -60,8 +60,11 @@ window_proc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 
     if (uMsg == ioMsg) {
         req = (Request*)lParam;
-        handle_io_progress(req);
-        SetEvent(req->readyEvent);
+        if (wParam == IO_MSG_RELEASE) {
+            release_request(req);
+        } else if (handle_io_progress(req, wParam == IO_MSG_FINAL)) {
+            SetEvent(req->readyEvent);
+        }
         return 0;
     }
 

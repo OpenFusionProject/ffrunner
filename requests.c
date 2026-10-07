@@ -106,25 +106,70 @@ on_load_ready()
 void
 cancel_request(Request *req)
 {
-    req->writeSize = 0;
     req->doneReason = NPRES_NETWORK_ERR;
-    req->done = true;
-    req->failed = true;
+    InterlockedExchange(&req->failed, 1);
 }
 
-void
-handle_io_progress(Request *req)
+static void
+post_io(Request *req, bool final)
+{
+    if (final) {
+        PostMessageW(hwnd, ioMsg, (WPARAM)IO_MSG_FINAL, (LPARAM)req);
+    } else if (InterlockedExchange(&req->msgPending, 1) == 0) {
+        PostMessageW(hwnd, ioMsg, (WPARAM)IO_MSG_PROGRESS, (LPARAM)req);
+    }
+}
+
+static RequestChunk *
+peek_chunk(Request *req)
+{
+    RequestChunk *chunk;
+
+    EnterCriticalSection(&req->queueLock);
+    chunk = req->queueHead;
+    LeaveCriticalSection(&req->queueLock);
+    return chunk;
+}
+
+static void
+pop_chunk(Request *req)
+{
+    RequestChunk *chunk;
+
+    EnterCriticalSection(&req->queueLock);
+    chunk = req->queueHead;
+    req->queueHead = chunk->next;
+    if (req->queueHead == NULL) {
+        req->queueTail = NULL;
+    }
+    req->queuedBytes -= chunk->size;
+    LeaveCriticalSection(&req->queueLock);
+    free(chunk);
+    SetEvent(req->spaceEvent);
+}
+
+bool
+handle_io_progress(Request *req, bool final)
 {
     NPError err;
-    size_t bytesAvailable;
+    RequestChunk *chunk;
     int32_t bytesReady;
     int32_t bytesConsumed;
-    uint8_t *dataPtr;
+    DWORD bytesAvailable;
 
     assert(req->source != REQ_SRC_UNSET);
-    assert(req->writePtr <= req->writeSize);
 
-    if (req->stream == NULL && !req->failed) {
+    if (req->finished) {
+        /* stale message; the worker may re-post the final message */
+        return false;
+    }
+    if (!final) {
+        InterlockedExchange(&req->msgPending, 0);
+    }
+
+    if (req->stream == NULL
+        && !InterlockedCompareExchange(&req->failed, 0, 0)
+        && !InterlockedCompareExchange(&req->aborted, 0, 0)) {
         /* start streaming */
         req->stream = malloc(sizeof(*req->stream));
         memset(req->stream, 0, sizeof(*req->stream));
@@ -135,61 +180,80 @@ handle_io_progress(Request *req)
         err = pluginFuncs.newstream(&npp, req->mimeType, req->stream, false, &req->streamType);
         dbglogmsg("  returned %d\n", err);
         if (err != NPERR_NO_ERROR) {
-            cancel_request(req);
+            InterlockedExchange(&req->aborted, 1);
+            SetEvent(req->spaceEvent);
         }
     }
 
-    /*
-     * Batch as many writes as the plugin will accept in a single trip,
-     * to avoid worker/main round-trips per NPP_Write call.
-     */
-    bytesAvailable = req->writeSize - req->writePtr;
-    while (req->stream && !req->failed && bytesAvailable > 0) {
+    while ((chunk = peek_chunk(req)) != NULL) {
+        if (InterlockedCompareExchange(&req->aborted, 0, 0) || req->stream == NULL) {
+            pop_chunk(req);
+            continue;
+        }
+        bytesAvailable = chunk->size - chunk->consumed;
         dbglogmsg("> NPP_WriteReady %s %d\n", req->originalUrl, bytesAvailable);
         bytesReady = pluginFuncs.writeready(&npp, req->stream);
         if (bytesReady <= 0) {
-            /* plugin says it's not ready; back off until next call */
-            break;
+            /* plugin isn't ready; the worker re-posts shortly */
+            SetEvent(req->spaceEvent);
+            return false;
         }
-        bytesReady = MIN(bytesReady, bytesAvailable);
+        bytesReady = MIN((DWORD)bytesReady, bytesAvailable);
         dbglogmsg("> NPP_Write %s %d\n", req->originalUrl, bytesReady);
-        dataPtr = req->buf + req->writePtr;
-        bytesConsumed = pluginFuncs.write(&npp, req->stream, req->bytesWritten, bytesReady, dataPtr);
+        bytesConsumed = pluginFuncs.write(&npp, req->stream, req->bytesWritten, bytesReady, chunk->data + chunk->consumed);
         if (bytesConsumed < 0) {
             logmsg("write error %d\n", bytesConsumed);
-            cancel_request(req);
-            break;
-        } else if ((uint32_t)bytesConsumed < bytesReady) {
+            InterlockedExchange(&req->aborted, 1);
+            SetEvent(req->spaceEvent);
+            continue;
+        } else if (bytesConsumed < bytesReady) {
             /* plugin promised it would consume offerSize via writeready */
             logmsg("not enough bytes consumed %d < %d\n", bytesConsumed, bytesReady);
-            cancel_request(req);
-            break;
+            InterlockedExchange(&req->aborted, 1);
+            SetEvent(req->spaceEvent);
+            continue;
         }
         req->bytesWritten += bytesConsumed;
-        req->writePtr += bytesConsumed;
-        bytesAvailable -= bytesConsumed;
+        chunk->consumed += bytesConsumed;
+        if (chunk->consumed == chunk->size) {
+            pop_chunk(req);
+        }
     }
 
-    if (req->done || req->failed) {
-        assert(req->failed || bytesAvailable == 0);
-
-        if (req->stream) {
-            dbglogmsg("> NPP_DestroyStream %s %d\n", req->originalUrl, req->doneReason);
-            err = pluginFuncs.destroystream(&npp, req->stream, req->doneReason);
-            if (err != NPERR_NO_ERROR) {
-                logmsg("destroystream error %d\n", err);
-            }
-            free(req->stream);
-            req->stream = NULL;
-        }
-
-        if (req->doNotify) {
-            dbglogmsg("> NPP_UrlNotify %s %d %p\n", req->originalUrl, req->doneReason, req->notifyData);
-            pluginFuncs.urlnotify(&npp, req->originalUrl, req->doneReason, req->notifyData);
-        }
-
-        complete_request();
+    if (!final) {
+        return false;
     }
+
+    assert(InterlockedCompareExchange(&req->readerDone, 0, 0));
+    if (InterlockedCompareExchange(&req->aborted, 0, 0)) {
+        cancel_request(req);
+    }
+
+    if (req->stream) {
+        dbglogmsg("> NPP_DestroyStream %s %d\n", req->originalUrl, req->doneReason);
+        err = pluginFuncs.destroystream(&npp, req->stream, req->doneReason);
+        if (err != NPERR_NO_ERROR) {
+            logmsg("destroystream error %d\n", err);
+        }
+        free(req->stream);
+        req->stream = NULL;
+    }
+
+    if (req->doNotify) {
+        dbglogmsg("> NPP_UrlNotify %s %d %p\n", req->originalUrl, req->doneReason, req->notifyData);
+        pluginFuncs.urlnotify(&npp, req->originalUrl, req->doneReason, req->notifyData);
+    }
+
+    complete_request();
+    req->finished = true;
+    return true;
+}
+
+void
+release_request(Request *req)
+{
+    DeleteCriticalSection(&req->queueLock);
+    free(req);
 }
 
 void
@@ -513,48 +577,36 @@ init_as_file:
     init_request_file(req);
 }
 
-void
-progress_request(Request *req)
+static bool
+read_chunk(Request *req, RequestChunk *chunk)
 {
-    assert(req->source != REQ_SRC_UNSET);
-    assert(req->writePtr <= req->writeSize);
+    DWORD size;
 
-    if (req->writePtr != req->writeSize) {
-        /* waiting for plugin to consume bytes */
-        return;
-    }
-    req->writePtr = 0;
-    req->writeSize = 0;
-
+    chunk->size = 0;
     switch (req->source) {
     case REQ_SRC_FILE:
     case REQ_SRC_CACHE:
-        if (!ReadFile(req->handles.hFile, req->buf, REQUEST_BUFFER_SIZE, &req->writeSize, NULL)) {
-            cancel_request(req);
-            return;
-        }
-        break;
+        return ReadFile(req->handles.hFile, chunk->data, REQUEST_CHUNK_SIZE, &chunk->size, NULL);
     case REQ_SRC_HTTP:
-        if (!InternetReadFile(req->handles.http.hReq, req->buf, REQUEST_BUFFER_SIZE, &req->writeSize)) {
-            cancel_request(req);
-            return;
+        /* InternetReadFile may return less than asked; fill the chunk unless the stream ended */
+        while (chunk->size < REQUEST_CHUNK_SIZE) {
+            if (!InternetReadFile(req->handles.http.hReq, chunk->data + chunk->size, REQUEST_CHUNK_SIZE - chunk->size, &size)) {
+                return false;
+            }
+            if (size == 0) {
+                break;
+            }
+            chunk->size += size;
         }
-        break;
+        return true;
     case REQ_SRC_MEMORY:
-        if (req->bytesWritten == 0) {
-            memcpy(req->buf, req->handles.hData, req->sizeHint);
-            req->writeSize = req->sizeHint;
-        }
-        break;
+        size = MIN(req->sizeHint - req->bytesRead, REQUEST_CHUNK_SIZE);
+        memcpy(chunk->data, req->handles.hData + req->bytesRead, size);
+        chunk->size = size;
+        return true;
     default:
         logmsg("Bad req src %d\n", req->source);
         exit(1);
-    }
-
-    if (req->writeSize == 0) {
-        /* EOF */
-        req->done = true;
-        req->doneReason = NPRES_DONE;
     }
 }
 
@@ -564,29 +616,75 @@ handle_request(PTP_CALLBACK_INSTANCE inst, void *reqArg, PTP_WORK work)
     Request *req;
 
     req = (Request *)reqArg;
-    while (true) {
-        if (req->source == REQ_SRC_UNSET) {
-            init_request(req);
+    init_request(req);
+
+    while (!InterlockedCompareExchange(&req->failed, 0, 0)
+           && !InterlockedCompareExchange(&req->aborted, 0, 0)) {
+        RequestChunk *chunk;
+
+        chunk = malloc(sizeof(*chunk));
+        chunk->next = NULL;
+        chunk->consumed = 0;
+        if (!read_chunk(req, chunk)) {
+            free(chunk);
+            cancel_request(req);
+            break;
         }
-        if (!req->failed) {
-            progress_request(req);
+        if (chunk->size == 0) {
+            /* EOF */
+            free(chunk);
+            req->doneReason = NPRES_DONE;
+            break;
         }
+        req->bytesRead += chunk->size;
 
         if (req->hOutFile != INVALID_HANDLE_VALUE) {
             /* write directly to output file */
             DWORD written;
-            if (req->writeSize > 0) {
-                WriteFile(req->hOutFile, req->buf, req->writeSize, &written, NULL);
-            }
-            req->writePtr = req->writeSize;
-        } else {
-            /* main thread has to pipe progress to the plugin */
-            PostMessageW(hwnd, ioMsg, (WPARAM)NULL, (LPARAM)req);
-            WaitForSingleObject(req->readyEvent, INFINITE);
+            WriteFile(req->hOutFile, chunk->data, chunk->size, &written, NULL);
+            free(chunk);
+            continue;
         }
 
-        if (req->done || req->failed) {
-            break;
+        /* queue for the main thread, which pipes it to the plugin */
+        EnterCriticalSection(&req->queueLock);
+        if (req->queueTail) {
+            req->queueTail->next = chunk;
+        } else {
+            req->queueHead = chunk;
+        }
+        req->queueTail = chunk;
+        req->queuedBytes += chunk->size;
+        LeaveCriticalSection(&req->queueLock);
+        post_io(req, false);
+
+        /* bound memory use if the plugin falls behind */
+        while (!InterlockedCompareExchange(&req->aborted, 0, 0)) {
+            size_t queued;
+            EnterCriticalSection(&req->queueLock);
+            queued = req->queuedBytes;
+            LeaveCriticalSection(&req->queueLock);
+            if (queued < REQUEST_MAX_QUEUED) {
+                break;
+            }
+            if (WaitForSingleObject(req->spaceEvent, 50) == WAIT_TIMEOUT) {
+                post_io(req, false);
+            }
+        }
+    }
+
+    if (req->hOutFile == INVALID_HANDLE_VALUE) {
+        /*
+         * Hand over the rest and let the main thread finish the stream. Only the
+         * worker posts messages, so the final one is always handled last; it is
+         * re-posted if the plugin wasn't ready to take everything yet.
+         */
+        InterlockedExchange(&req->readerDone, 1);
+        post_io(req, true);
+        while (WaitForSingleObject(req->readyEvent, 50) == WAIT_TIMEOUT) {
+            if (WaitForSingleObject(req->spaceEvent, 0) == WAIT_OBJECT_0 && peek_chunk(req) != NULL) {
+                post_io(req, true);
+            }
         }
     }
 
@@ -613,7 +711,14 @@ handle_request(PTP_CALLBACK_INSTANCE inst, void *reqArg, PTP_WORK work)
         CloseHandle(req->doneEvent);
     }
     CloseHandle(req->readyEvent);
-    free(req);
+    CloseHandle(req->spaceEvent);
+    if (req->hOutFile != INVALID_HANDLE_VALUE) {
+        DeleteCriticalSection(&req->queueLock);
+        free(req);
+    } else {
+        /* messages for this request may still be queued; the main thread frees it after them */
+        PostMessageW(hwnd, ioMsg, (WPARAM)IO_MSG_RELEASE, (LPARAM)req);
+    }
 
     CloseThreadpoolWork(work);
 }
@@ -625,6 +730,9 @@ submit_request_work(Request *req)
 
     req->readyEvent = CreateEventW(NULL, false, false, NULL);
     assert(req->readyEvent);
+    req->spaceEvent = CreateEventW(NULL, false, false, NULL);
+    assert(req->spaceEvent);
+    InitializeCriticalSection(&req->queueLock);
 
     work = CreateThreadpoolWork(handle_request, req, NULL);
     assert(work);
