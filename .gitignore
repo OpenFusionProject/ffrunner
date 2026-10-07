@@ -7,6 +7,7 @@ assets/
 mono/
 player/
 loader/
+loader-x64/
 out/
 build/
 .vscode/

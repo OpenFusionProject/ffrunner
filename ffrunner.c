@@ -437,7 +437,7 @@ initBrowserObject(void)
 void
 initNetscapeFuncs(void)
 {
-    netscapeFuncs.size = 224;
+    netscapeFuncs.size = sizeof(netscapeFuncs);
     netscapeFuncs.version = 27;
     netscapeFuncs.geturl = NPN_GetURLProc;
     netscapeFuncs.posturl = NPN_PostURLProc;
@@ -745,7 +745,11 @@ main(int argc, char **argv)
     SetEnvironmentVariableA("UNITY_KEEP_LOG_FILES", "yes");
 
     if (args.forceVulkan) {
+#ifdef _WIN64
+        SetEnvironmentVariableA("UNITY_FF_DX_DLL", "d3d9_vulkan64.dll");
+#else
         SetEnvironmentVariableA("UNITY_FF_DX_DLL", "d3d9_vulkan.dll");
+#endif
     } else if (args.forceOpenGl) {
         SetEnvironmentVariableA("UNITY_FF_DX_DLL", "lmao");
     }
@@ -755,7 +759,11 @@ main(int argc, char **argv)
     initBrowserObject();
 
     logmsg("LoadLibraryW\n");
+#ifdef _WIN64
+    loader = LoadLibraryW(L"loader-x64\\npUnity3D64.dll");
+#else
     loader = LoadLibraryW(L"loader\\npUnity3D32.dll");
+#endif
     if (!loader) {
         err = GetLastError();
         logmsg("Failed to load plugin DLL: 0x%x\n", err);
