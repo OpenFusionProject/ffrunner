@@ -114,6 +114,18 @@ NPN_ReleaseVariantValueProc(NPVariant *variant)
     dbglogmsg("< NPN_ReleaseVariantValueProc\n");
 }
 
+void *
+NPN_MemAllocProc(uint32_t size)
+{
+    return malloc(size);
+}
+
+void
+NPN_MemFreeProc(void *ptr)
+{
+    free(ptr);
+}
+
 NPObject *
 NPN_CreateObjectProc(NPP npp, NPClass *aClass)
 {
@@ -454,6 +466,8 @@ initNetscapeFuncs(void)
     netscapeFuncs.evaluate = NPN_EvaluateProc;
     netscapeFuncs.getstringidentifier = NPN_GetStringIdentifierProc;
     netscapeFuncs.getstringidentifiers = NPN_GetStringIdentifiersProc;
+    netscapeFuncs.memalloc = NPN_MemAllocProc;
+    netscapeFuncs.memfree = NPN_MemFreeProc;
 }
 
 void
