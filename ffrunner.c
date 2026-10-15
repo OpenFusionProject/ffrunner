@@ -108,12 +108,6 @@ NPN_InvokeProc(NPP npp, NPObject* obj, NPIdentifier methodName, const NPVariant 
     return false;
 }
 
-void
-NPN_ReleaseVariantValueProc(NPVariant *variant)
-{
-    dbglogmsg("< NPN_ReleaseVariantValueProc\n");
-}
-
 void *
 NPN_MemAllocProc(uint32_t size)
 {
@@ -173,6 +167,19 @@ NPN_ReleaseObjectProc(NPObject *obj)
         else
             free(obj);
     }
+}
+
+void
+NPN_ReleaseVariantValueProc(NPVariant *variant)
+{
+    dbglogmsg("< NPN_ReleaseVariantValueProc\n");
+
+    if (NPVARIANT_IS_STRING(*variant))
+        NPN_MemFreeProc((void *)NPVARIANT_TO_STRING(*variant).UTF8Characters);
+    else if (NPVARIANT_IS_OBJECT(*variant))
+        NPN_ReleaseObjectProc(NPVARIANT_TO_OBJECT(*variant));
+
+    VOID_TO_NPVARIANT(*variant);
 }
 
 NPError
@@ -470,6 +477,42 @@ initNetscapeFuncs(void)
     netscapeFuncs.memfree = NPN_MemFreeProc;
 }
 
+static
+bool
+check_plugin_error(void)
+{
+    NPIdentifier getError;
+    NPVariant ret;
+    NPString retString;
+    bool hasError = false;
+
+    if (!scriptableObject || !scriptableObject->_class)
+        return false;
+
+    /* Old loader versions won't have this API, but the version we use today does. */
+    getError = getNPIdentifier("GetError");
+    if (!scriptableObject->_class->hasMethod(scriptableObject, getError))
+        return false;
+
+    VOID_TO_NPVARIANT(ret);
+    if (scriptableObject->_class->invoke(scriptableObject, getError, NULL, 0, &ret) && NPVARIANT_IS_STRING(ret)) {
+        retString = NPVARIANT_TO_STRING(ret);
+        char *msg = (char *)retString.UTF8Characters;
+        uint32_t i;
+
+        for (i = 0; i < retString.UTF8Length; i++) {
+            if (msg[i] == '\n' || msg[i] == '\r')
+                msg[i] = ' ';
+        }
+
+        hasError = true;
+        logmsg("Plugin error: %.*s\n", (int)retString.UTF8Length, msg);
+    }
+    NPN_ReleaseVariantValueProc(&ret);
+
+    return hasError;
+}
+
 void
 parse_args(int argc, char **argv)
 {
@@ -722,6 +765,7 @@ main(int argc, char **argv)
     DWORD err;
     wchar_t cwd[MAX_PATH];
     NPError ret;
+    int exitCode;
     HMODULE loader;
     RECT winRect;
     char iconFile[MAX_PATH];
@@ -894,11 +938,13 @@ main(int argc, char **argv)
 
     message_loop();
 
+    exitCode = check_plugin_error() ? EXIT_PLUGIN_ERROR : 0;
+
     dbglogmsg("> NPP_DestroyProc\n");
     ret = pluginFuncs.destroy(&npp, &savedPtr);
     dbglogmsg("  returned %d\n", ret);
 
-    return 0;
+    return exitCode;
 }
 
 int

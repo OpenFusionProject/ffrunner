@@ -19,6 +19,7 @@
 
 #define LOG_FILE_PATH "ffrunner.log"
 #define USERAGENT "ffrunner"
+#define EXIT_PLUGIN_ERROR 2
 #define CLASS_NAME L"FFWINDOW"
 #define IO_MSG_NAME L"FFRunnerIoReady"
 #define IO_MSG_PROGRESS 0
