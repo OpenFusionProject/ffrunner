@@ -21,3 +21,7 @@ jobs:
       with:
         name: ffrunner
         path: ffrunner.exe
+    - uses: actions/upload-artifact@v4.6.0
+      with:
+        name: ffrunner64
+        path: ffrunner64.exe
